@@ -348,7 +348,7 @@ Global settings:
                         ;; omitted.
                         ,@magit--confirm-actions)))
 
-(defcustom magit-slow-confirm '(drop-stashes)
+(defcustom magit-slow-confirm '(drop-stashes push-upstream-with-pushremote)
   "Whether to ask user \"y or n\" or \"yes or no\" questions.
 
 When this is nil, then `y-or-n-p' is used when the user has to
