@@ -165,6 +165,7 @@ The value has the form ((COMMAND nil|PROMPT DEFAULT)...).
     (const delete-pr-remote)
     (const drop-stashes)
     (const set-and-push)
+    (const push-upstream-with-pushremote)
     (const amend-published)
     (const rebase-published)
     (const edit-published)
