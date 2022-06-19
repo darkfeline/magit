@@ -46,8 +46,7 @@
                   (format (propertize "Push %s to" 'face 'transient-heading)
                           (propertize (magit-get-current-branch)
                                       'face 'magit-branch-local)))
-   ("p" magit-push-current-to-pushremote)
-   ("u" magit-push-current-to-upstream)
+   ("p" magit-push-implicitly)
    ("e" "elsewhere" magit-push-current)]
   ["Push"
    [("o" "another branch"    magit-push-other)
@@ -126,11 +125,6 @@ the upstream."
                      (user-error "No branch is checked out")))
          (remote (magit-get "branch" branch "remote"))
          (merge  (magit-get "branch" branch "merge")))
-    (if (magit-get-push-remote branch)
-        (magit-confirm 'push-upstream-with-pushremote
-          (format "Push remote exists for branch \"%s\"; really push to upstream \"%s\""
-                  (propertize branch 'face 'magit-branch-local)
-                  (magit-get-push-branch branch))))
     (when (or current-prefix-arg
               (not (or (magit-get-upstream-branch branch)
                        (magit--unnamed-upstream-p remote merge)
