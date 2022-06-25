@@ -308,7 +308,7 @@ what this command will do.  For example:
             (format "%s using %s"
                     (magit--propertize-face remote 'bold)
                     (magit--propertize-face refspec 'bold))
-          (pcase (magit-get "push.default")
+          (pcase (or (magit-get "push.default") "simple")
             ("nothing")
             ((or "current" "simple")
              (format "%s\n"
