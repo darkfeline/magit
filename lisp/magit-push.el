@@ -314,9 +314,16 @@ what this command will do.  For example:
              (format "%s\n"
                      (magit-branch-set-face (format "%s/%s" remote (magit-get-current-branch)))))
             ((or "upstream" "tracking")
-             (format "%s\n"
-                     (magit-branch-set-face (format "%s/%s" remote
-                                                    (magit-get "remote" remote "merge")))))
+             (let ((refspec (magit-get "remote" remote "merge")))
+               (when refspec
+                 (if (string-prefix-p "refs/heads/" refspec)
+                     (format "%s\n"
+                             (magit-branch-set-face
+                              (format "%s/%s" remote
+                                      (substring refspec (length "refs/heads/")))))
+                   (format "%s to %s\n"
+                           (magit--propertize-face refspec 'bold)
+                           (magit--propertize-face remote 'bold))))))
             ("matching" (format "all matching to %s\n"
                                 (magit--propertize-face remote 'bold)))))))))
 
