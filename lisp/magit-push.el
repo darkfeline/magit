@@ -280,9 +280,9 @@ these Git variables: `push.default', `remote.pushDefault',
 
 If you add this suffix to a transient prefix without explicitly
 specifying the description, then an attempt is made to predict
-what this command will do.  For example:
+what this command will do.  To add it use something like:
 
-  (transient-insert-suffix \\='magit-push \"p\"
+  (transient-insert-suffix \\='magit-push \"o\"
     \\='(\"i\" magit-push-implicitly))"
   :description #'magit-push-implicitly--desc
   (interactive (list (magit-push-arguments)))
@@ -327,8 +327,8 @@ what this command will do.  For example:
             ("matching" (format "all matching to %s\n"
                                 (magit--propertize-face remote 'bold)))))))))
 
-;;;###autoload
-(defun magit-push-to-remote (remote args)
+;;;###autoload (autoload 'magit-push-to-remote "magit-push" nil t)
+(transient-define-suffix magit-push-to-remote (remote args)
   "Push to REMOTE without using an explicit refspec.
 The REMOTE is read in the minibuffer.
 
@@ -337,14 +337,20 @@ are the arguments specified in the popup buffer.  No refspec
 arguments are used.  Instead the behavior depends on at least
 these Git variables: `push.default', `remote.pushDefault',
 `branch.<branch>.pushRemote', `branch.<branch>.remote',
-`branch.<branch>.merge', and `remote.<remote>.push'."
+`branch.<branch>.merge', and `remote.<remote>.push'.
+
+You can add this command as a suffix using something like:
+
+  (transient-insert-suffix \\='magit-push \"o\"
+    \\='(\"x\" magit-push-to-remote))"
+  :description #'magit-push-to-remote--desc
   (interactive (list (magit-read-remote "Push to remote")
                      (magit-push-arguments)))
   (run-hooks 'magit-credential-hook)
   (magit-run-git-async "push" "-v" args remote))
 
 (defun magit-push-to-remote--desc ()
-  (format "using %s\n" (magit--propertize-face "git push <remote>" 'bold)))
+  (format "using %s" (magit--propertize-face "git push <remote>" 'bold)))
 
 ;;; _
 (provide 'magit-push)
