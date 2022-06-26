@@ -299,35 +299,33 @@ what this command will do.  To add it use something like:
   ;; so it doesn't make sense to talk about "pushing to upstream".
   ;; Depending on the options, you could end up pushing to the
   ;; "upstream" remote but not the "upstream" branch, and vice versa.
-  (let ((refspec (magit-get "remote" remote "merge")))
-    (if (string= refspec "nothing")
-        "nothing (due to push.default)"
-      (let ((remote (magit-get-push-remote)))
-        (unless remote
-          (setq remote (magit-get-remote)))
-        (when remote
-          (let ((refspec (magit-get "remote" remote "push")))
-            (if refspec
-                (format "%s using %s"
-                        (magit--propertize-face remote 'bold)
-                        (magit--propertize-face refspec 'bold))
-              (pcase refspec
-                ((or "current" "simple")
-                 (format "%s\n"
-                         (magit-branch-set-face (format "%s/%s" remote (magit-get-current-branch)))))
-                ((or "upstream" "tracking")
-                 (let ((refspec (magit-get "remote" remote "merge")))
-                   (when refspec
-                     (if (string-prefix-p "refs/heads/" refspec)
-                         (format "%s\n"
-                                 (magit-branch-set-face
-                                  (format "%s/%s" remote
-                                          (substring refspec (length "refs/heads/")))))
-                       (format "%s to %s\n"
-                               (magit--propertize-face refspec 'bold)
-                               (magit--propertize-face remote 'bold))))))
-                ("matching" (format "all matching to %s\n"
-                                    (magit--propertize-face remote 'bold)))))))))))
+  (let ((remote (magit-get-push-remote)))
+    (unless remote
+      (setq remote (magit-get-remote)))
+    (when remote
+      (let ((refspec (magit-get "remote" remote "push")))
+        (if refspec
+            (format "%s using %s"
+                    (magit--propertize-face remote 'bold)
+                    (magit--propertize-face refspec 'bold))
+          (pcase (or (magit-get "push.default") "simple")
+            ("nothing")
+            ((or "current" "simple")
+             (format "%s\n"
+                     (magit-branch-set-face (format "%s/%s" remote (magit-get-current-branch)))))
+            ((or "upstream" "tracking")
+             (let ((refspec (magit-get "remote" remote "merge")))
+               (when refspec
+                 (if (string-prefix-p "refs/heads/" refspec)
+                     (format "%s\n"
+                             (magit-branch-set-face
+                              (format "%s/%s" remote
+                                      (substring refspec (length "refs/heads/")))))
+                   (format "%s to %s\n"
+                           (magit--propertize-face refspec 'bold)
+                           (magit--propertize-face remote 'bold))))))
+            ("matching" (format "all matching to %s\n"
+                                (magit--propertize-face remote 'bold)))))))))
 
 ;;;###autoload (autoload 'magit-push-to-remote "magit-push" nil t)
 (transient-define-suffix magit-push-to-remote (remote args)
