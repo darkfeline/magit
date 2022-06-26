@@ -302,7 +302,8 @@ what this command will do.  To add it use something like:
   (let ((remote (magit-get-push-remote)))
     (unless remote
       (setq remote (magit-get-remote)))
-    (when remote
+    (if (not remote)
+        "nothing (no remote)"
       (let ((refspec (magit-get "remote" remote "push")))
         (if refspec
             (format "%s using %s"
@@ -312,7 +313,8 @@ what this command will do.  To add it use something like:
             ("nothing" "nothing (due to push.default)")
             ((or "current" "simple")
              (format "%s\n"
-                     (magit-branch-set-face (format "%s/%s" remote (magit-get-current-branch)))))
+                     (magit-branch-set-face
+                      (format "%s/%s" remote (magit-get-current-branch)))))
             ((or "upstream" "tracking")
              (let ((refspec (magit-get "remote" remote "merge")))
                (when refspec
