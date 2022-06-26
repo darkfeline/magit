@@ -309,7 +309,7 @@ what this command will do.  To add it use something like:
                     (magit--propertize-face remote 'bold)
                     (magit--propertize-face refspec 'bold))
           (pcase (or (magit-get "push.default") "simple")
-            ("nothing")
+            ("nothing" "nothing (due to push.default)")
             ((or "current" "simple")
              (format "%s\n"
                      (magit-branch-set-face (format "%s/%s" remote (magit-get-current-branch)))))
