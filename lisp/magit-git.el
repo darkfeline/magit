@@ -1705,10 +1705,13 @@ according to the branch type."
       (substring ref 13))))
 
 (defun magit-get-remote (&optional branch)
-  (when (or branch (setq branch (magit-get-current-branch)))
-    (let ((remote (magit-get "branch" branch "remote")))
-      (unless (equal remote ".")
-        remote))))
+  (if (or branch (setq branch (magit-get-current-branch)))
+      (let ((remote (magit-get "branch" branch "remote")))
+        (unless (equal remote ".")
+          remote))
+    (let ((remotes (magit-list-remotes)))
+      (if (= (length remotes) 1) (car remotes)
+        "origin"))))
 
 (defun magit-get-some-remote (&optional branch)
   (or (magit-get-remote branch)
