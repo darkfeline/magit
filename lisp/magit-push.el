@@ -299,7 +299,8 @@ what this command will do.  To add it use something like:
   ;; so it doesn't make sense to talk about "pushing to upstream".
   ;; Depending on the options, you could end up pushing to the
   ;; "upstream" remote but not the "upstream" branch, and vice versa.
-  (let ((remote (or (magit-get-push-remote)
+  (let ((branch (magit-get-current-branch))
+        (remote (or (magit-get-push-remote)
                     (magit-get-remote))))
     (if (not remote)
         "nothing (no remote)"
@@ -313,9 +314,9 @@ what this command will do.  To add it use something like:
             ((or "current" "simple")
              (format "%s\n"
                      (magit-branch-set-face
-                      (format "%s/%s" remote (magit-get-current-branch)))))
+                      (format "%s/%s" remote branch))))
             ((or "upstream" "tracking")
-             (let ((refspec (magit-get "branch" (magit-get-current-branch) "merge")))
+             (let ((refspec (magit-get "branch" branch "merge")))
                (when refspec
                  (if (string-prefix-p "refs/heads/" refspec)
                      (format "%s\n"
