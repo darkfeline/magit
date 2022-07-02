@@ -302,32 +302,30 @@ what this command will do.  To add it use something like:
   (let ((branch (magit-get-current-branch))
         (remote (or (magit-get-push-remote)
                     (magit-get-remote))))
-    (if (not remote)
-        "nothing (no remote)"
-      (let ((refspec (magit-get "remote" remote "push")))
-        (if refspec
-            (format "%s using %s"
-                    (magit--propertize-face remote 'bold)
-                    (magit--propertize-face refspec 'bold))
-          (pcase (or (magit-get "push.default") "simple")
-            ("nothing" "nothing (due to push.default)")
-            ((or "current" "simple")
-             (format "%s\n"
-                     (magit-branch-set-face
-                      (format "%s/%s" remote branch))))
-            ((or "upstream" "tracking")
-             (let ((refspec (magit-get "branch" branch "merge")))
-               (when refspec
-                 (if (string-prefix-p "refs/heads/" refspec)
-                     (format "%s\n"
-                             (magit-branch-set-face
-                              (format "%s/%s" remote
-                                      (substring refspec (length "refs/heads/")))))
-                   (format "%s to %s\n"
-                           (magit--propertize-face refspec 'bold)
-                           (magit--propertize-face remote 'bold))))))
-            ("matching" (format "all matching to %s\n"
-                                (magit--propertize-face remote 'bold)))))))))
+    (let ((refspec (magit-get "remote" remote "push")))
+      (if refspec
+          (format "%s using %s"
+                  (magit--propertize-face remote 'bold)
+                  (magit--propertize-face refspec 'bold))
+        (pcase (or (magit-get "push.default") "simple")
+          ("nothing" "nothing (due to push.default)")
+          ((or "current" "simple")
+           (format "%s\n"
+                   (magit-branch-set-face
+                    (format "%s/%s" remote branch))))
+          ((or "upstream" "tracking")
+           (let ((refspec (magit-get "branch" branch "merge")))
+             (when refspec
+               (if (string-prefix-p "refs/heads/" refspec)
+                   (format "%s\n"
+                           (magit-branch-set-face
+                            (format "%s/%s" remote
+                                    (substring refspec (length "refs/heads/")))))
+                 (format "%s to %s\n"
+                         (magit--propertize-face refspec 'bold)
+                         (magit--propertize-face remote 'bold))))))
+          ("matching" (format "all matching to %s\n"
+                              (magit--propertize-face remote 'bold))))))))
 
 ;;;###autoload (autoload 'magit-push-to-remote "magit-push" nil t)
 (transient-define-suffix magit-push-to-remote (remote args)
