@@ -299,9 +299,8 @@ what this command will do.  To add it use something like:
   ;; so it doesn't make sense to talk about "pushing to upstream".
   ;; Depending on the options, you could end up pushing to the
   ;; "upstream" remote but not the "upstream" branch, and vice versa.
-  (let ((remote (magit-get-push-remote)))
-    (unless remote
-      (setq remote (magit-get-remote)))
+  (let ((remote (or (magit-get-push-remote)
+                    (magit-get-remote))))
     (if (not remote)
         "nothing (no remote)"
       (let ((refspec (magit-get "remote" remote "push")))
