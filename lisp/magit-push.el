@@ -316,7 +316,7 @@ what this command will do.  To add it use something like:
                      (magit-branch-set-face
                       (format "%s/%s" remote (magit-get-current-branch)))))
             ((or "upstream" "tracking")
-             (let ((refspec (magit-get "remote" remote "merge")))
+             (let ((refspec (magit-get "branch" (magit-get-current-branch) "merge")))
                (when refspec
                  (if (string-prefix-p "refs/heads/" refspec)
                      (format "%s\n"
