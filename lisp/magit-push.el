@@ -304,7 +304,9 @@ what this command will do.  To add it use something like:
                     (magit-get-remote)
                     (let ((remotes (magit-list-remotes)))
                       (cond
-                       ((= (length remotes) 1) (car remotes))
+                       ((and (magit-git-version>= "2.27")
+                             (= (length remotes) 1))
+                        (car remotes))
                        ((member "origin" remotes) "origin"))))))
     (if (null remote)
         "nothing (no remote)"
