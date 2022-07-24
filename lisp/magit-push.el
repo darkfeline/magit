@@ -304,7 +304,7 @@ what this command will do.  To add it use something like:
                     (magit-get-remote))))
     (let ((refspec (magit-get "remote" remote "push")))
       (if refspec
-          (format "%s using %s"
+          (format "to %s with refspecs %s"
                   (magit--propertize-face remote 'bold)
                   (magit--propertize-face refspec 'bold))
         (pcase (or (magit-get "push.default") "simple")
