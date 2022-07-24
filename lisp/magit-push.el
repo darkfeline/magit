@@ -301,7 +301,11 @@ what this command will do.  To add it use something like:
   ;; "upstream" remote but not the "upstream" branch, and vice versa.
   (let ((branch (magit-get-current-branch))
         (remote (or (magit-get-push-remote)
-                    (magit-get-remote))))
+                    (magit-get-remote)
+                    (let ((remotes (magit-list-remotes)))
+                      (cond
+                       ((= (length remotes) 1) (car remotes))
+                       ((member "origin" remotes) "origin"))))))
     (let ((refspec (magit-get "remote" remote "push")))
       (if refspec
           (format "to %s with refspecs %s"
