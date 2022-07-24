@@ -311,14 +311,14 @@ what this command will do.  To add it use something like:
           ("nothing" "nothing (due to push.default)")
           ((or "current" "simple")
            (format "%s to %s"
-                   branch
+                   (magit--propertize-face branch 'magit-branch-current)
                    (magit--propertize-face (format "%s/%s" remote branch)
                                            'magit-branch-remote)))
           ((or "upstream" "tracking")
            (let ((refspec (magit-get "branch" branch "merge")))
              (when refspec
                (format "%s to %s"
-                       branch
+                       (magit--propertize-face branch 'magit-branch-current)
                        (if (string-prefix-p "refs/heads/" refspec)
                            (magit--propertize-face
                             (format "%s/%s" remote
