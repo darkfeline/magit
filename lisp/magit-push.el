@@ -310,8 +310,8 @@ what this command will do.  To add it use something like:
         (pcase (or (magit-get "push.default") "simple")
           ("nothing" "nothing (due to push.default)")
           ((or "current" "simple")
-           (magit-branch-set-face
-            (format "%s/%s" remote branch)))
+           (magit--propertize-face (format "%s/%s" remote branch)
+                                   'magit-branch-remote))
           ((or "upstream" "tracking")
            (let ((refspec (magit-get "branch" branch "merge")))
              (when refspec
