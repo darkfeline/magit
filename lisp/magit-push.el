@@ -316,9 +316,10 @@ what this command will do.  To add it use something like:
            (let ((refspec (magit-get "branch" branch "merge")))
              (when refspec
                (if (string-prefix-p "refs/heads/" refspec)
-                   (magit-branch-set-face
+                   (magit--propertize-face
                     (format "%s/%s" remote
-                            (substring refspec (length "refs/heads/"))))
+                            (substring refspec (length "refs/heads/")))
+                    'magit-branch-remote)
                  (format "%s to %s"
                          (magit--propertize-face refspec 'bold)
                          (magit--propertize-face remote 'bold))))))
