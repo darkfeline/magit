@@ -327,14 +327,18 @@ what this command will do.  To add it use something like:
                (if ref
                    (format "%s to %s"
                            (magit--propertize-face branch 'magit-branch-current)
-                           (if (string-prefix-p "refs/heads/" ref)
-                               (magit--propertize-face
-                                (format "%s/%s" remote
-                                        (substring ref (length "refs/heads/")))
-                                'magit-branch-remote)
-                             (format "%s as %s"
-                                     (magit--propertize-face remote 'bold)
-                                     (magit--propertize-face ref 'bold))))
+                           (cond
+                            ((string-prefix-p "refs/heads/" ref)
+                             (magit--propertize-face
+                              (format "%s/%s" remote
+                                      (substring ref (length "refs/heads/")))
+                              'magit-branch-remote))
+                            ((not (string-match "/" ref))
+                             (magit--propertize-face (format "%s/%s" remote ref)
+                                                     'magit-branch-remote))
+                            (t (format "%s as %s"
+                                       (magit--propertize-face remote 'bold)
+                                       (magit--propertize-face ref 'bold)))))
                  "nothing (no upstream)")))
             ("matching" (format "all matching to %s"
                                 (magit--propertize-face remote 'bold)))))))))
