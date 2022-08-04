@@ -323,18 +323,19 @@ what this command will do.  To add it use something like:
                      (magit--propertize-face (format "%s/%s" remote branch)
                                              'magit-branch-remote)))
             ((or "upstream" "tracking")
-             (let ((refspec (magit-get "branch" branch "merge")))
-               (when refspec
-                 (format "%s to %s"
-                         (magit--propertize-face branch 'magit-branch-current)
-                         (if (string-prefix-p "refs/heads/" refspec)
-                             (magit--propertize-face
-                              (format "%s/%s" remote
-                                      (substring refspec (length "refs/heads/")))
-                              'magit-branch-remote)
-                           (format "%s as %s"
-                                   (magit--propertize-face remote 'bold)
-                                   (magit--propertize-face refspec 'bold)))))))
+             (let ((ref (magit-get "branch" branch "merge")))
+               (if ref
+                   (format "%s to %s"
+                           (magit--propertize-face branch 'magit-branch-current)
+                           (if (string-prefix-p "refs/heads/" ref)
+                               (magit--propertize-face
+                                (format "%s/%s" remote
+                                        (substring ref (length "refs/heads/")))
+                                'magit-branch-remote)
+                             (format "%s as %s"
+                                     (magit--propertize-face remote 'bold)
+                                     (magit--propertize-face ref 'bold))))
+                 "nothing (no upstream)")))
             ("matching" (format "all matching to %s"
                                 (magit--propertize-face remote 'bold)))))))))
 
