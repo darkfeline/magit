@@ -55,20 +55,7 @@ Magit and Git itself deserve to be called porcelains.
 @noindent
 This manual is for Magit version 3.3.0-git.
 
-@quotation
-Copyright (C) 2015-2022 Jonas Bernoulli <jonas@@bernoul.li>
-
-You can redistribute this document and/or modify it under the terms
-of the GNU General Public License as published by the Free Software
-Foundation, either version 3 of the License, or (at your option) any
-later version.
-
-This document is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE@.  See the GNU
-General Public License for more details.
-
-@end quotation
+@insertcopying
 @end ifnottex
 
 @menu
@@ -10806,7 +10793,7 @@ echo "*.gpg filter=gpg diff=gpg" > .gitattributes
 @node How does branching and pushing work?
 @appendixsubsec How does branching and pushing work?
 
-Please see @ref{Branching} and @uref{http://emacsair.me/2016/01/18/magit-2.4}
+Please see @ref{Branching} and @uref{http://emacsair.me/2016/01/17/magit-2.4}
 
 @node Should I disable VC@?
 @appendixsubsec Should I disable VC@?
