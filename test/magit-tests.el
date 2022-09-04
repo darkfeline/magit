@@ -303,6 +303,80 @@ Enter passphrase for key '/home/user/.ssh/id_rsa': "
         (should (equal (pop sent-strings) "mypasswd\n")))
       (should (null sent-strings)))))
 
+;;; Clone
+
+(ert-deftest magit-clone:--name-to-url-format-defaults ()
+  (magit-with-test-repository
+   (magit-git "config" "--add" "sourcehut.user" "shuser")
+   (magit-git "config" "--add" "github.user" "ghuser")
+   (magit-git "config" "--add" "gitlab.user" "gluser")
+   ;; No explicit service
+   (should (string-equal (magit-clone--name-to-url "a/b")
+                         "git@github.com:a/b.git"))
+   (should (string-equal (magit-clone--name-to-url "b")
+                         "git@github.com:ghuser/b.git"))
+   ;; User in config
+   (should (string-equal (magit-clone--name-to-url "gh:b")
+                         "git@github.com:ghuser/b.git"))
+   (should (string-equal (magit-clone--name-to-url "gl:n")
+                         "git@gitlab.com:gluser/n.git"))
+   (should (string-equal (magit-clone--name-to-url "sh:l")
+                         "git@git.sr.ht:~shuser/l"))
+   ;; Explicit user (abbreviated service names)
+   (should (string-equal (magit-clone--name-to-url "gh:a/b")
+                         "git@github.com:a/b.git"))
+   (should (string-equal (magit-clone--name-to-url "gl:t/s")
+                         "git@gitlab.com:t/s.git"))
+   (should (string-equal (magit-clone--name-to-url "sh:x/y")
+                         "git@git.sr.ht:~x/y"))
+   ;; Explicit user (long service names)
+   (should (string-equal (magit-clone--name-to-url "github:a1/b1")
+                         "git@github.com:a1/b1.git"))
+   (should (string-equal (magit-clone--name-to-url "gitlab:t1/s1")
+                         "git@gitlab.com:t1/s1.git"))
+   (should (string-equal (magit-clone--name-to-url "sourcehut:x1/y1")
+                         "git@git.sr.ht:~x1/y1"))))
+
+(ert-deftest magit-clone:--name-to-url-format-single-string ()
+  (let ((magit-clone-url-format "bird@%h:%n.git")
+        (magit-clone-name-alist
+         '(("\\`\\(?:github:\\|gh:\\)?\\([^:]+\\)\\'" "github.com" "u")
+           ("\\`\\(?:gitlab:\\|gl:\\)\\([^:]+\\)\\'" "gitlab.com" "u"))))
+    (should (string-equal (magit-clone--name-to-url "gh:a/b")
+                          "bird@github.com:a/b.git"))
+    (should (string-equal (magit-clone--name-to-url "gl:a/b")
+                          "bird@gitlab.com:a/b.git"))
+    (should (string-equal (magit-clone--name-to-url "github:c/d")
+                          "bird@github.com:c/d.git"))
+    (should (string-equal (magit-clone--name-to-url "gitlab:c/d")
+                          "bird@gitlab.com:c/d.git"))))
+
+(ert-deftest magit-clone:--name-to-url-format-bad-type-throws-error ()
+  (let ((magit-clone-url-format 3))
+    (should-error (magit-clone--name-to-url "gh:a/b")
+                  :type 'user-error)))
+
+(ert-deftest magit-clone:--name-to-url-format-alist-different-urls-per-hostname ()
+  (let ((magit-clone-name-alist
+         '(("\\`\\(?:example:\\|ex:\\)\\([^:]+\\)\\'" "git.example.com" "foouser")
+           ("\\`\\(?:gh:\\)?\\([^:]+\\)\\'" "github.com" "u")))
+        (magit-clone-url-format
+         '(("git.example.com" . "cow@%h:~%n")
+           (t . "git@%h:%n.git"))))
+    (should (string-equal (magit-clone--name-to-url "gh:a/b")
+                          "git@github.com:a/b.git"))
+    (should (string-equal (magit-clone--name-to-url "ex:a/b")
+                          "cow@git.example.com:~a/b"))
+    (should (string-equal (magit-clone--name-to-url "example:x/y")
+                          "cow@git.example.com:~x/y"))
+    (should (string-equal (magit-clone--name-to-url "ex:c")
+                          "cow@git.example.com:~foouser/c"))))
+
+(ert-deftest magit-clone:--name-to-url-format-alist-no-fallback-throws-error ()
+  (let ((magit-clone-url-format '(("fail.example.com" . "git@%h:~%n"))))
+    (should-error (magit-clone--name-to-url "gh:a/b")
+                  :type 'user-error)))
+
 ;;; Status
 
 (defun magit-test-get-section (list file)
