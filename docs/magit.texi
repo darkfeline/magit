@@ -9842,6 +9842,7 @@ using:
 
 @lisp
 (remove-hook 'server-switch-hook 'magit-commit-diff)
+(remove-hook 'with-editor-filter-visit-hook 'magit-commit-diff)
 @end lisp
 
 Then you can type @code{C-c C-d} to show the diff when you actually want to
@@ -10753,7 +10754,7 @@ to pronounce Magit like magic, while taking into account that C and T
 do not sound the same.
 
 The German "Magie" is not pronounced the same as the English "magic",
-so if you speak German then you can use the above rational to justify
+so if you speak German then you can use the above rationale to justify
 using the former pronunciation; @code{Mag@{ie => it@}}.
 
 You can also choose to use the former pronunciation just because you
