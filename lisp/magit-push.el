@@ -46,7 +46,8 @@
                   (format (propertize "Push %s to" 'face 'transient-heading)
                           (propertize (magit-get-current-branch)
                                       'face 'magit-branch-local)))
-   ("p" magit-push-implicitly)
+   ("p" magit-push-current-to-pushremote)
+   ("u" magit-push-current-to-upstream)
    ("e" "elsewhere" magit-push-current)]
   ["Push"
    [("o" "another branch"    magit-push-other)
