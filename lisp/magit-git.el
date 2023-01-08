@@ -1,6 +1,6 @@
 ;;; magit-git.el --- Git functionality  -*- lexical-binding:t -*-
 
-;; Copyright (C) 2008-2022 The Magit Project Contributors
+;; Copyright (C) 2008-2023 The Magit Project Contributors
 
 ;; Author: Jonas Bernoulli <jonas@bernoul.li>
 ;; Maintainer: Jonas Bernoulli <jonas@bernoul.li>
@@ -593,7 +593,7 @@ executable."
                               (error "`git --exec-path' failed"))))
                    exec-suffixes
                    #'file-executable-p)
-      (compat-executable-find command t)))
+      (compat-call executable-find command t)))
 
 ;;; Git Version
 
@@ -946,7 +946,7 @@ returning the truename."
   "Git executable cannot be found (see https://magit.vc/goto/e6a78ed2)")
 
 (defun magit--assert-usable-git ()
-  (if (not (compat-executable-find (magit-git-executable) t))
+  (if (not (compat-call executable-find (magit-git-executable) t))
       (signal 'magit-git-executable-not-found (magit-git-executable))
     (let ((magit-git-debug
            (lambda (err)
@@ -1528,7 +1528,7 @@ to, or to some other symbolic-ref that points to the same ref."
       (magit-thing-at-point 'git-revision t)
       (and-let* ((chunk (and (bound-and-true-p magit-blame-mode)
                              (fboundp 'magit-current-blame-chunk)
-                             (magit-current-blame-chunk 'addition t))))
+                             (magit-current-blame-chunk))))
         (oref chunk orig-rev))
       (and (derived-mode-p 'magit-stash-mode
                            'magit-merge-preview-mode
@@ -1550,7 +1550,7 @@ to, or to some other symbolic-ref that points to the same ref."
       (magit-thing-at-point 'git-revision t)
       (and-let* ((chunk (and (bound-and-true-p magit-blame-mode)
                              (fboundp 'magit-current-blame-chunk)
-                             (magit-current-blame-chunk 'addition t))))
+                             (magit-current-blame-chunk))))
         (oref chunk orig-rev))
       (and magit-buffer-file-name
            magit-buffer-refname)
