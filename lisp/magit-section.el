@@ -9,7 +9,10 @@
 ;; Keywords: tools
 
 ;; Package-Version: 3.3.0.50-git
-;; Package-Requires: ((emacs "25.1") (compat "28.1.1.2") (dash "2.19.1"))
+;; Package-Requires: (
+;;     (emacs "25.1")
+;;     (compat "29.1.3.2")
+;;     (dash "2.19.1"))
 
 ;; SPDX-License-Identifier: GPL-3.0-or-later
 
@@ -187,7 +190,7 @@ Otherwise the value has to have one of these two forms:
                                 (const :tag "No (kinda ugly)" nil)))))
 
 (define-obsolete-variable-alias 'magit-keep-region-overlay
-  'magit-section-keep-region-overlay "Magit-Section 3.4.0")
+  'magit-section-keep-region-overlay "Magit-Section 4.0.0")
 (defcustom magit-section-keep-region-overlay nil
   "Whether to keep the region overlay when there is a valid selection.
 
@@ -254,7 +257,7 @@ but that ship has sailed, thus this option."
 This has to be set before loading `magit-section' or it has
 no effect.  This also has no effect for Emacs >= 28, where
 `context-menu-mode' should be enabled instead."
-  :package-version '(magit-section . "3.4.0")
+  :package-version '(magit-section . "4.0.0")
   :group 'magit-section
   :type 'boolean)
 

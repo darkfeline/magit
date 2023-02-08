@@ -967,7 +967,7 @@ The function used to actually bury or kill the current buffer.
 @code{magit-mode-bury-buffer} calls this function with one argument.  If
 the argument is non-nil, then the function has to kill the current
 buffer.  Otherwise it has to bury it alive.  The default value
-currently is @code{magit-restore-window-configuration}.
+currently is @code{magit-mode-quit-window}.
 @end defopt
 
 @defun magit-restore-window-configuration kill-buffer
@@ -5408,6 +5408,12 @@ Example of by-hostname format strings:
       '(("git.example.com" . "git@@%h:~%n")
         (nil . "git@@%h:%n.git")))
 @end lisp
+@end defopt
+
+@defopt magit-post-clone-hook
+Hook run after the Git process has successfully finished cloning the
+repository.  When the hook is called, @code{default-directory} is
+let-bound to the directory where the repository has been cloned.
 @end defopt
 
 @node Staging and Unstaging

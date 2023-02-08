@@ -597,7 +597,7 @@ buffers whose major-modes derive from ~magit-mode~.
   ~magit-mode-bury-buffer~ calls this function with one argument.  If
   the argument is non-nil, then the function has to kill the current
   buffer.  Otherwise it has to bury it alive.  The default value
-  currently is ~magit-restore-window-configuration~.
+  currently is ~magit-mode-quit-window~.
 
 - Function: magit-restore-window-configuration kill-buffer ::
 
@@ -4353,6 +4353,12 @@ The following suffixes are disabled by default. See
           '(("git.example.com" . "git@%h:~%n")
             (nil . "git@%h:%n.git")))
   #+END_SRC
+
+- User Option: magit-post-clone-hook ::
+
+  Hook run after the Git process has successfully finished cloning the
+  repository.  When the hook is called, ~default-directory~ is
+  let-bound to the directory where the repository has been cloned.
 
 ** Staging and Unstaging
 
