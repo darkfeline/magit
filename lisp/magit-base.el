@@ -484,9 +484,9 @@ and delay of your graphical environment or operating system."
 
 (defvar magit-completing-read--silent-default nil)
 
-(defun magit-completing-read (prompt collection &optional
-                                     predicate require-match initial-input
-                                     hist def fallback)
+(defun magit-completing-read ( prompt collection &optional
+                               predicate require-match initial-input
+                               hist def fallback)
   "Read a choice in the minibuffer, or use the default choice.
 
 This is the function that Magit commands use when they need the
@@ -587,48 +587,13 @@ acts similarly to `completing-read', except for the following:
                        predicate require-match
                        initial-input hist def))))
 
+(define-obsolete-function-alias 'magit-completing-read-multiple*
+  'magit-completing-read-multiple "Magit-Section 4.0.0")
+
 (defun magit-completing-read-multiple
-    (prompt choices &optional sep default hist keymap)
-  "Read multiple items from CHOICES, separated by SEP.
-
-Set up the `crm' variables needed to read multiple values with
-`read-from-minibuffer'.
-
-SEP is a regexp matching characters that can separate choices.
-When SEP is nil, it defaults to `crm-separator'.  DEFAULT, HIST,
-and KEYMAP are passed to `read-from-minibuffer'.  When KEYMAP is
-nil, it defaults to `crm-local-completion-map'.
-
-Unlike `completing-read-multiple', the return value is not split
-into a list."
-  (declare (obsolete magit-completing-read-multiple* "Magit 3.1.0"))
-  (let* ((crm-separator (or sep crm-separator))
-         (crm-completion-table (magit--completion-table choices))
-         (choose-completion-string-functions
-          '(crm--choose-completion-string))
-         (minibuffer-completion-table #'crm--collection-fn)
-         (minibuffer-completion-confirm t)
-         (helm-completion-in-region-default-sort-fn nil)
-         (helm-crm-default-separator nil)
-         (ivy-sort-matches-functions-alist nil)
-         (input
-          (cl-letf (((symbol-function #'completion-pcm--all-completions)))
-            (when (< emacs-major-version 26)
-              (fset 'completion-pcm--all-completions
-                    'magit-completion-pcm--all-completions))
-            (read-from-minibuffer
-             (concat prompt (and default (format " (%s)" default)) ": ")
-             nil (or keymap crm-local-completion-map)
-             nil hist default))))
-    (when (string-equal input "")
-      (or (setq input default)
-          (user-error "Nothing selected")))
-    input))
-
-(defun magit-completing-read-multiple*
-    (prompt table &optional predicate require-match initial-input
-            hist def inherit-input-method
-            no-split)
+    ( prompt table &optional predicate require-match initial-input
+      hist def inherit-input-method
+      no-split)
   "Read multiple strings in the minibuffer, with completion.
 Like `completing-read-multiple' but don't mess with order of
 TABLE and take an additional argument NO-SPLIT, which causes
@@ -714,8 +679,8 @@ back to built-in `completing-read' for now." :error)
   (setq defining-kbd-macro nil)
   (force-mode-line-update))
 
-(defun magit-read-string (prompt &optional initial-input history default-value
-                                 inherit-input-method no-whitespace)
+(defun magit-read-string ( prompt &optional initial-input history default-value
+                           inherit-input-method no-whitespace)
   "Read a string from the minibuffer, prompting with string PROMPT.
 
 This is similar to `read-string', but
@@ -751,8 +716,8 @@ This is similar to `read-string', but
            (user-error "Input contains whitespace"))
           (t val))))
 
-(defun magit-read-string-ns (prompt &optional initial-input history
-                                    default-value inherit-input-method)
+(defun magit-read-string-ns ( prompt &optional initial-input history
+                              default-value inherit-input-method)
   "Call `magit-read-string' with non-nil NO-WHITESPACE."
   (magit-read-string prompt initial-input history default-value
                      inherit-input-method t))
@@ -783,8 +748,8 @@ ACTION is a member of option `magit-slow-confirm'."
   '((safe-with-wip magit-wip-before-change-mode
                    discard reverse stage-all-changes unstage-all-changes)))
 
-(cl-defun magit-confirm (action &optional prompt prompt-n noabort
-                                (items nil sitems))
+(cl-defun magit-confirm ( action &optional prompt prompt-n noabort
+                          (items nil sitems))
   (declare (indent defun))
   (setq prompt-n (format (concat (or prompt-n prompt) "? ") (length items)))
   (setq prompt   (format (concat (or prompt (magit-confirm-make-prompt action))

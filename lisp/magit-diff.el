@@ -980,11 +980,11 @@ and `:slant'."
   :multi-value t)
 
 (defun magit-read-files (prompt initial-input history &optional list-fn)
-  (magit-completing-read-multiple* prompt
-                                   (funcall (or list-fn #'magit-list-files))
-                                   nil nil
-                                   (or initial-input (magit-file-at-point))
-                                   history))
+  (magit-completing-read-multiple prompt
+                                  (funcall (or list-fn #'magit-list-files))
+                                  nil nil
+                                  (or initial-input (magit-file-at-point))
+                                  history))
 
 (transient-define-argument magit-diff:-U ()
   :description "Context lines"
@@ -1990,7 +1990,6 @@ Staging and applying changes is documented in info node
 
 (define-obsolete-variable-alias 'magit-diff-section-base-map
   'magit-diff-section-map "Magit-Section 4.0.0")
-
 
 (defvar-keymap magit-diff-section-map
   :doc "Keymap for diff sections.

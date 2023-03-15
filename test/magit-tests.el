@@ -278,7 +278,7 @@
   (let ((magit-process-find-password-functions
          (list (lambda (host) (when (string= host "www.host.com") "mypasswd")))))
     (cl-letf (((symbol-function 'process-send-string)
-               (lambda (process string) string)))
+               (lambda (_process string) string)))
       (should (string-equal (magit-process-password-prompt
                              nil "Password for 'www.host.com':")
                             "mypasswd\n")))))
@@ -383,7 +383,7 @@ Enter passphrase for key '/home/user/.ssh/id_rsa': "
 ;;; Status
 
 (defun magit-test-get-section (list file)
-  (magit-status-internal default-directory)
+  (magit-status-setup-buffer default-directory)
   (--first (equal (oref it value) file)
            (oref (magit-get-section `(,list (status)))
                  children)))
