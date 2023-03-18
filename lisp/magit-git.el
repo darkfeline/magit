@@ -41,6 +41,9 @@
 (declare-function magit-get-mode-buffer "magit-mode"
                   (mode &optional value frame))
 (declare-function magit-refresh "magit-mode" ())
+(defvar magit-buffer-gitdir)
+(defvar magit-buffer-topdir)
+(defvar magit-buffer-diff-type)
 (defvar magit-buffer-diff-args)
 (defvar magit-buffer-file-name)
 (defvar magit-buffer-log-args)
@@ -265,7 +268,7 @@ side-effects or to do something with its standard output.
 
 When git is run for side-effects then its output, including error
 messages, go into the process buffer which is shown when using \
-\\<magit-status-mode-map>\\[magit-process].
+\\<magit-status-mode-map>\\[magit-process-buffer].
 
 When git's output is consumed in some way, then it would be too
 expensive to also insert it into this buffer, but when this
@@ -810,37 +813,46 @@ Also see `magit-git-config-p'."
   `(when-let ((default-directory (magit--safe-default-directory ,file)))
      ,@body))
 
+(defun magit-git-dir (&optional path)
+  "Like (expand-file-name PATH (magit-gitdir)) or just (magit-gitdir)."
+  (declare (obsolete 'magit-gitdir "Magit 4.0.0"))
+  (and-let* ((dir (magit-gitdir)))
+    (if path
+        (expand-file-name (convert-standard-filename path) dir)
+      dir)))
+
 (defun magit-gitdir (&optional directory)
   "Return the absolute and resolved path of the .git directory.
 
-If the `GIT_DIR' environment variable is define then return that.
+As a special-case, if the `GIT_DIR' environment variable is set,
+return its value.  It is usually a bad idea to set this variable
+when using Magit.
+
+Otherwise if `magit-buffer-gitdir' is set, return that.  The
+value of this buffer-local variable is set to the value returned
+by this function, when a Magit buffer is first created.  So this
+effectively memorizes the value returned by this function.
+
 Otherwise return the .git directory for DIRECTORY, or if that is
 nil, then for `default-directory' instead.  If the directory is
 not located inside a Git repository, then return nil."
-  (let ((default-directory (or directory default-directory)))
-    (magit-git-dir)))
-
-(defun magit-git-dir (&optional path)
-  "Return the absolute and resolved path of the .git directory.
-
-If the `GIT_DIR' environment variable is define then return that.
-Otherwise return the .git directory for `default-directory'.  If
-the directory is not located inside a Git repository, then return
-nil."
-  (magit--with-refresh-cache (list default-directory 'magit-git-dir path)
-    (magit--with-safe-default-directory nil
-      (and-let* ((dir (magit-rev-parse-safe "--git-dir"))
-                 (dir (file-name-as-directory (magit-expand-git-file-name dir)))
-                 (dir (if (file-remote-p dir)
-                          dir
-                        (concat (file-remote-p default-directory) dir))))
-        (if path (expand-file-name (convert-standard-filename path) dir) dir)))))
+  (or (getenv "GIT_DIR")
+      magit-buffer-gitdir
+      (let ((default-directory (or directory default-directory)))
+        (magit--with-refresh-cache (list default-directory 'magit-gitdir)
+          (magit--with-safe-default-directory nil
+            (and-let* ((dir (magit-rev-parse-safe "--git-dir"))
+                       (dir (file-name-as-directory
+                             (magit-expand-git-file-name dir))))
+              (if (file-remote-p dir)
+                  dir
+                (concat (file-remote-p default-directory) dir))))))))
 
 (defvar magit--separated-gitdirs nil)
 
 (defun magit--record-separated-gitdir ()
   (let ((topdir (magit-toplevel))
-        (gitdir (magit-git-dir)))
+        (gitdir (magit-gitdir)))
     ;; Kludge: git-annex converts submodule gitdirs to symlinks. See #3599.
     (when (file-symlink-p (directory-file-name gitdir))
       (setq gitdir (file-truename gitdir)))
@@ -863,6 +875,10 @@ tree.  As a special case, from within a bare repository return
 the control directory instead.  When called outside a repository
 then return nil.
 
+When `magit-buffer-toplevel' is non-nil, then return its value,
+unless DIRECTORY is non-nil, or `default-directory' was let-bound
+to another directory, while another buffer was current.
+
 When optional DIRECTORY is non-nil then return the toplevel for
 that directory instead of the one for `default-directory'.
 
@@ -873,67 +889,76 @@ tree is involved, or when called from within a sub-directory of
 the gitdir or from the toplevel of a gitdir, which itself is not
 located within the working tree, then it is not possible to avoid
 returning the truename."
-  (magit--with-refresh-cache
-      (cons (or directory default-directory) 'magit-toplevel)
-    (magit--with-safe-default-directory directory
-      (if-let ((topdir (magit-rev-parse-safe "--show-toplevel")))
-          (let (updir)
-            (setq topdir (magit-expand-git-file-name topdir))
-            (if (and
-                 ;; Always honor these settings.
-                 (not find-file-visit-truename)
-                 (not (getenv "GIT_WORK_TREE"))
-                 ;; `--show-cdup' is the relative path to the toplevel
-                 ;; from `(file-truename default-directory)'.  Here we
-                 ;; pretend it is relative to `default-directory', and
-                 ;; go to that directory.  Then we check whether
-                 ;; `--show-toplevel' still returns the same value and
-                 ;; whether `--show-cdup' now is the empty string.  If
-                 ;; both is the case, then we are at the toplevel of
-                 ;; the same working tree, but also avoided needlessly
-                 ;; following any symlinks.
-                 (progn
-                   (setq updir (file-name-as-directory
-                                (magit-rev-parse-safe "--show-cdup")))
-                   (setq updir (if (file-name-absolute-p updir)
-                                   (concat (file-remote-p default-directory) updir)
-                                 (expand-file-name updir)))
-                   (and-let*
-                       ((default-directory updir)
-                        (top (and (string-equal
-                                   (magit-rev-parse-safe "--show-cdup") "")
-                                  (magit-rev-parse-safe "--show-toplevel"))))
-                     (string-equal (magit-expand-git-file-name top) topdir))))
-                updir
-              (concat (file-remote-p default-directory)
-                      (file-name-as-directory topdir))))
-        (and-let* ((gitdir (magit-rev-parse-safe "--git-dir"))
-                   (gitdir (file-name-as-directory
-                            (if (file-name-absolute-p gitdir)
-                                ;; We might have followed a symlink.
-                                (concat (file-remote-p default-directory)
-                                        (magit-expand-git-file-name gitdir))
-                              (expand-file-name gitdir)))))
-          (if (magit-bare-repo-p)
-              gitdir
-            (let* ((link (expand-file-name "gitdir" gitdir))
-                   (wtree (and (file-exists-p link)
-                               (magit-file-line link))))
-              (cond
-               ((and wtree
-                     ;; Ignore .git/gitdir files that result from a
-                     ;; Git bug.  See #2364.
-                     (not (equal wtree ".git")))
-                ;; Return the linked working tree.
-                (concat (file-remote-p default-directory)
-                        (file-name-directory wtree)))
-               ;; The working directory may not be the parent directory of
-               ;; .git if it was set up with `git init --separate-git-dir'.
-               ;; See #2955.
-               ((car (rassoc gitdir magit--separated-gitdirs)))
-               (t
-                ;; Step outside the control directory to enter the working tree.
-                (file-name-directory (directory-file-name gitdir)))))))))))
+  (or
+   (and magit-buffer-topdir
+        (not directory)
+        (equal (expand-file-name default-directory)
+               (expand-file-name
+                (buffer-local-value 'default-directory (current-buffer))))
+        magit-buffer-topdir)
+   (magit--with-refresh-cache
+       (cons (or directory default-directory) 'magit-toplevel)
+     (magit--with-safe-default-directory directory
+       (if-let ((topdir (magit-rev-parse-safe "--show-toplevel")))
+           (let (updir)
+             (setq topdir (magit-expand-git-file-name topdir))
+             (cond
+              ((and
+                ;; Always honor these settings.
+                (not find-file-visit-truename)
+                (not (getenv "GIT_WORK_TREE"))
+                ;; `--show-cdup' is the relative path to the toplevel
+                ;; from `(file-truename default-directory)'.  Here we
+                ;; pretend it is relative to `default-directory', and
+                ;; go to that directory.  Then we check whether
+                ;; `--show-toplevel' still returns the same value and
+                ;; whether `--show-cdup' now is the empty string.  If
+                ;; both is the case, then we are at the toplevel of
+                ;; the same working tree, but also avoided needlessly
+                ;; following any symlinks.
+                (progn
+                  (setq updir (file-name-as-directory
+                               (magit-rev-parse-safe "--show-cdup")))
+                  (setq updir (if (file-name-absolute-p updir)
+                                  (concat (file-remote-p default-directory)
+                                          updir)
+                                (expand-file-name updir)))
+                  (and-let*
+                      ((default-directory updir)
+                       (top (and (string-equal
+                                  (magit-rev-parse-safe "--show-cdup") "")
+                                 (magit-rev-parse-safe "--show-toplevel"))))
+                    (string-equal (magit-expand-git-file-name top) topdir))))
+               updir)
+              ((concat (file-remote-p default-directory)
+                       (file-name-as-directory topdir)))))
+         (and-let* ((gitdir (magit-rev-parse-safe "--git-dir"))
+                    (gitdir (file-name-as-directory
+                             (if (file-name-absolute-p gitdir)
+                                 ;; We might have followed a symlink.
+                                 (concat (file-remote-p default-directory)
+                                         (magit-expand-git-file-name gitdir))
+                               (expand-file-name gitdir)))))
+           (if (magit-bare-repo-p)
+               gitdir
+             (let* ((link (expand-file-name "gitdir" gitdir))
+                    (wtree (and (file-exists-p link)
+                                (magit-file-line link))))
+               (cond
+                ((and wtree
+                      ;; Ignore .git/gitdir files that result from a
+                      ;; Git bug.  See #2364.
+                      (not (equal wtree ".git")))
+                 ;; Return the linked working tree.
+                 (concat (file-remote-p default-directory)
+                         (file-name-directory wtree)))
+                ;; The working directory may not be the parent
+                ;; directory of .git if it was set up with
+                ;; "git init --separate-git-dir".  See #2955.
+                ((car (rassoc gitdir magit--separated-gitdirs)))
+                (;; Step outside the control directory to enter the
+                 ;; working tree.
+                 (file-name-directory (directory-file-name gitdir))))))))))))
 
 (defun magit--toplevel-safe ()
   (or (magit-toplevel)
@@ -976,7 +1001,7 @@ is non-nil, in which case return nil."
        ;; Below a repository directory that is not located below the
        ;; working directory "git rev-parse --is-inside-git-dir" prints
        ;; "false", which is wrong.
-       (let ((gitdir (magit-git-dir)))
+       (let ((gitdir (magit-gitdir)))
          (cond (gitdir (file-in-directory-p default-directory gitdir))
                (noerror nil)
                (t (signal 'magit-outside-git-repo default-directory))))))
@@ -2384,7 +2409,8 @@ and this option only controls what face is used.")
   (let ((file (cl-gensym "file")))
     `(let ((magit--refresh-cache nil)
            (,file (magit-convert-filename-for-git
-                   (make-temp-name (magit-git-dir "index.magit.")))))
+                   (make-temp-name
+                    (expand-file-name "index.magit." (magit-gitdir))))))
        (unwind-protect
            (magit-with-toplevel
              (--when-let ,tree
@@ -2424,7 +2450,8 @@ and this option only controls what face is used.")
                                    (or (magit-rev-verify ref) "")))
           ;; `--create-reflog' didn't exist before v2.6.0
           (let ((oldrev  (magit-rev-verify ref))
-                (logfile (magit-git-dir (concat "logs/" ref))))
+                (logfile (expand-file-name (concat "logs/" ref)
+                                           (magit-gitdir))))
             (unless (file-exists-p logfile)
               (when oldrev
                 (magit-git-success "update-ref" "-d" ref oldrev))
@@ -2685,7 +2712,7 @@ out.  Only existing branches can be selected."
                " starting at")
        (nconc (list "HEAD")
               (magit-list-refnames)
-              (directory-files (magit-git-dir) nil "_HEAD\\'"))
+              (directory-files (magit-gitdir) nil "_HEAD\\'"))
        nil nil nil 'magit-revision-history
        (or default (magit--default-starting-point)))
       (user-error "Nothing selected")))

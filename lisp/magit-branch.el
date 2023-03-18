@@ -794,8 +794,9 @@ and also rename the respective reflog file."
     (magit-run-git "update-ref" "-d" old)))
 
 (defun magit--rename-reflog-file (old new)
-  (let ((old (magit-git-dir (concat "logs/" old)))
-        (new (magit-git-dir (concat "logs/" new))))
+  (let* ((dir (magit-gitdir))
+         (old (expand-file-name (concat "logs/" old) dir))
+         (new (expand-file-name (concat "logs/" new) dir)))
     (when (file-exists-p old)
       (make-directory (file-name-directory new) t)
       (rename-file old new t))))
@@ -845,12 +846,6 @@ and also rename the respective reflog file."
   :variable "branch.%s.description"
   (interactive (list (oref transient-current-prefix scope)))
   (magit-run-git-with-editor "branch" "--edit-description" branch))
-
-(add-hook 'find-file-hook #'magit-branch-description-check-buffers)
-
-(defun magit-branch-description-check-buffers ()
-  (and buffer-file-name
-       (string-match-p "/\\(BRANCH\\|EDIT\\)_DESCRIPTION\\'" buffer-file-name)))
 
 (defclass magit--git-branch:upstream (magit--git-variable)
   ((format :initform " %k %m %M\n   %r %R")))
