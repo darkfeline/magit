@@ -501,30 +501,37 @@ a boolean, then raise an error."
   "Execute Git with ARGS, inserting its output at point.
 If Git exits with a non-zero exit status, then show a message and
 add a section in the respective process buffer."
+  (apply #'magit--git-insert nil args))
+
+(defun magit--git-insert (return-error &rest args)
   (setq args (magit-process-git-arguments args))
-  (if magit-git-debug
+  (if (or return-error magit-git-debug)
       (let (log)
         (unwind-protect
-            (progn
+            (let (exit errmsg)
               (setq log (make-temp-file "magit-stderr"))
               (delete-file log)
-              (let ((exit (magit-process-git (list t log) args)))
-                (when (> exit 0)
-                  (let ((msg "Git failed"))
-                    (when (file-exists-p log)
-                      (setq msg (with-temp-buffer
-                                  (insert-file-contents log)
-                                  (goto-char (point-max))
-                                  (if (functionp magit-git-debug)
-                                      (funcall magit-git-debug (buffer-string))
-                                    (magit--locate-error-message))))
-                      (let ((magit-git-debug nil))
-                        (with-current-buffer (magit-process-buffer t)
-                          (magit-process-insert-section default-directory
-                                                        magit-git-executable
-                                                        args exit log))))
-                    (message "%s" msg)))
-                exit))
+              (setq exit (magit-process-git (list t log) args))
+              (when (> exit 0)
+                (when (file-exists-p log)
+                  (with-temp-buffer
+                    (insert-file-contents log)
+                    (goto-char (point-max))
+                    (setq errmsg
+                          (if (functionp magit-git-debug)
+                              (funcall magit-git-debug (buffer-string))
+                            (magit--locate-error-message))))
+                  (unless return-error
+                    (let ((magit-git-debug nil))
+                      (with-current-buffer (magit-process-buffer t)
+                        (magit-process-insert-section default-directory
+                                                      magit-git-executable
+                                                      args exit log)))))
+                (unless return-error
+                  (if errmsg
+                      (message "%s" errmsg)
+                    (message "Git returned with exit-code %s" exit))))
+              (or errmsg exit))
           (ignore-errors (delete-file log))))
     (magit-process-git (list t nil) args)))
 
@@ -566,6 +573,8 @@ message and add a section in the respective process buffer."
     (apply #'magit-git-insert args)
     (split-string (buffer-string) "\0" t)))
 
+(defvar magit--git-wash-keep-error nil) ; experimental
+
 (defun magit-git-wash (washer &rest args)
   "Execute Git with ARGS, inserting washed output at point.
 Actually first insert the raw output at point.  If there is no
@@ -573,21 +582,32 @@ output, call `magit-cancel-section'.  Otherwise temporarily narrow
 the buffer to the inserted text, move to its beginning, and then
 call function WASHER with ARGS as its sole argument."
   (declare (indent 1))
-  (let ((beg (point)))
-    (setq args (flatten-tree args))
-    (magit-git-insert args)
+  (apply #'magit--git-wash washer magit--git-wash-keep-error args))
+
+(defun magit--git-wash (washer keep-error &rest args)
+  (declare (indent 2))
+  (setq args (flatten-tree args))
+  (let ((beg (point))
+        (exit (magit--git-insert keep-error args)))
+    (when (stringp exit)
+      (goto-char beg)
+      (insert (propertize exit 'face 'error))
+      (unless (bolp)
+        (insert "\n")))
     (if (= (point) beg)
         (magit-cancel-section)
       (unless (bolp)
         (insert "\n"))
-      (save-restriction
-        (narrow-to-region beg (point))
-        (goto-char beg)
-        (funcall washer args))
-      (when (or (= (point) beg)
-                (= (point) (1+ beg)))
-        (magit-cancel-section))
-      (magit-maybe-make-margin-overlay))))
+      (when (equal exit 0)
+        (save-restriction
+          (narrow-to-region beg (point))
+          (goto-char beg)
+          (funcall washer args))
+        (when (or (= (point) beg)
+                  (= (point) (1+ beg)))
+          (magit-cancel-section))
+        (magit-maybe-make-margin-overlay)))
+    exit))
 
 (defun magit-git-executable-find (command)
   "Search for COMMAND in Git's exec path, falling back to `exec-path'.
@@ -960,8 +980,11 @@ returning the truename."
                  ;; working tree.
                  (file-name-directory (directory-file-name gitdir))))))))))))
 
-(defun magit--toplevel-safe ()
-  (or (magit-toplevel)
+(defun magit--toplevel-safe (&optional nocache)
+  (or (if nocache
+          (let ((magit-buffer-topdir nil))
+            (magit-toplevel))
+        (magit-toplevel))
       (magit--not-inside-repository-error)))
 
 (defmacro magit-with-toplevel (&rest body)

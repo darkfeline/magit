@@ -543,9 +543,16 @@ that is being reset."
 ;;;###autoload
 (defun magit-branch-delete (branches &optional force)
   "Delete one or multiple branches.
+
 If the region marks multiple branches, then offer to delete
 those, otherwise prompt for a single branch to be deleted,
-defaulting to the branch at point."
+defaulting to the branch at point.
+
+Require confirmation when deleting branches is dangerous in some
+way.  Option `magit-no-confirm' can be customized to not require
+confirmation in certain cases.  See its docstring to learn why
+confirmation is required by default in certain cases or if a
+prompt is confusing."
   ;; One would expect this to be a command as simple as, for example,
   ;; `magit-branch-rename'; but it turns out everyone wants to squeeze
   ;; a bit of extra functionality into this one, including myself.
@@ -586,7 +593,9 @@ defaulting to the branch at point."
              (offset (1+ (length remote))))
         (cond
          ((magit-confirm 'delete-branch-on-remote
-            "Delete %s on the remote (not just locally)"
+            (format "Deleting local %s.  Also delete on %s"
+                    (magit-ref-fullname (car branches))
+                    remote)
             "Delete %i branches on the remote (not just locally)"
             'noabort branches)
           ;; The ref may actually point at another rev on the remote,
