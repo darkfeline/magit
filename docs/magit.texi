@@ -3893,6 +3893,10 @@ change the diff arguments used in the current buffer, without changing
 which diff is shown.  This works in dedicated diff buffers, but also
 in the status buffer.
 
+(There is one exception; diff arguments cannot be changed in buffers
+created by @code{magit-merge-preview} because the underlying Git command does
+not support these arguments.)
+
 @table @asis
 @item @kbd{D} (@code{magit-diff-refresh})
 @kindex D
@@ -6013,8 +6017,7 @@ paragraphs.
 @end defun
 
 @defun git-commit-turn-on-auto-fill
-Turn on @code{auto-fill-mode} and set @code{fill-column} to the value of
-@code{git-commit-fill-column}.
+Turn on @code{auto-fill-mode}.
 @end defun
 
 @defun git-commit-turn-on-flyspell
@@ -6070,11 +6073,6 @@ who has to waste some time telling you to fix your commits.
 The intended maximal length of the summary line of commit messages.
 Characters beyond this column are colorized to indicate that this
 preference has been violated.
-@end defopt
-
-@defopt git-commit-fill-column
-Column beyond which automatic line-wrapping should happen in commit
-message buffers.
 @end defopt
 
 @defopt git-commit-finish-query-functions
@@ -6802,6 +6800,10 @@ command you should probably use a command from the apply transient.
 @findex magit-merge-preview
 This command shows a preview of merging another branch or an
 arbitrary revision into the current branch.
+
+Note that commands, that normally change how a diff is displayed, do
+not work in buffers created by this command, because the underlying
+Git command does not support diff arguments.
 @end table
 
 When a merge is in progress, then the transient instead features the
