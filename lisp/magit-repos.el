@@ -149,7 +149,7 @@ non-nil, means to invert the resulting sort."
 (defun magit-list-repositories ()
   "Display a list of repositories.
 
-Use the options `magit-repository-directories' to control which
+Use the option `magit-repository-directories' to control which
 repositories are displayed."
   (interactive)
   (magit-repolist-setup (default-value 'magit-repolist-columns)))
@@ -342,8 +342,8 @@ If it contains \"%s\" then the directory is substituted for that."
 See `tabulated-list--get-sorter'.  Given a more reasonable API
 this would not be necessary and one could just use SORT-PREDICATE
 directly.  CONVERT-CELL can be used to turn the cell value, which
-is always a string back into e.g. a number.  COLUMN-IDX has to be
-the index of the column that uses the returned sorter function."
+is always a string back into, e.g., a number.  COLUMN-IDX has to
+be the index of the column that uses the returned sorter function."
   (lambda (a b)
     (funcall sort-predicate
              (funcall convert-cell (aref (cadr a) column-idx))

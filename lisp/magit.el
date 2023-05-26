@@ -228,7 +228,7 @@ and/or `magit-branch-remote-head'."
 
 (defface magit-signature-error
   '((t :foreground "light blue"))
-  "Face for signatures that cannot be checked (e.g. missing key)."
+  "Face for signatures that cannot be checked (e.g., missing key)."
   :group 'magit-faces)
 
 (defface magit-cherry-unmatched
@@ -387,12 +387,12 @@ Also see info node `(magit)Commands for Buffers Visiting Files'."
     ("U" "Unstage all"    magit-unstage-all)]]
   ["Essential commands"
    :if-derived magit-mode
-   [("g" "       refresh current buffer"   magit-refresh)
-    ("q" "       bury current buffer"      magit-mode-bury-buffer)
-    ("<tab>" "   toggle section at point"  magit-section-toggle)
-    ("<return>" "visit thing at point"     magit-visit-thing)]
-   [("C-x m"    "show all key bindings"    describe-mode)
-    ("C-x i"    "show Info manual"         magit-info)]])
+   [("g" "       Refresh current buffer"   magit-refresh)
+    ("q" "       Bury current buffer"      magit-mode-bury-buffer)
+    ("<tab>" "   Toggle section at point"  magit-section-toggle)
+    ("<return>" "Visit thing at point"     magit-visit-thing)]
+   [("C-x m"    "Show all key bindings"    describe-mode)
+    ("C-x i"    "Show Info manual"         magit-info)]])
 
 ;;; Git Popup
 
@@ -626,7 +626,7 @@ and Emacs to it."
                   (setq magit-version (match-string 1 dirname)))))
             ;; If all else fails, just report the commit hash. It's
             ;; better than nothing and we cannot do better in the case
-            ;; of e.g. a shallow clone.
+            ;; of e.g., a shallow clone.
             (progn
               (push 'hash debug)
               ;; Same check as above to see if it's really the Magit repo.
