@@ -1074,10 +1074,11 @@ tracked file."
 
 (defun magit-file-ignored-p (file)
   (magit-git-string-p "ls-files" "--others" "--ignored" "--exclude-standard"
-                      "--" file))
+                      "--" (magit-convert-filename-for-git file)))
 
 (defun magit-file-tracked-p (file)
-  (magit-git-success "ls-files" "--error-unmatch" "--" file))
+  (magit-git-success "ls-files" "--error-unmatch"
+                     "--" (magit-convert-filename-for-git file)))
 
 (defun magit-list-files (&rest args)
   (apply #'magit-git-items "ls-files" "-z" "--full-name" args))
@@ -1116,6 +1117,9 @@ tracked file."
 (defun magit-ignored-files ()
   (magit-git-items "ls-files" "-z" "--others" "--ignored"
                    "--exclude-standard" "--directory"))
+
+(defun magit-stashed-files (stash)
+  (magit-git-items "stash" "show" "-z" "--name-only" stash))
 
 (defun magit-skip-worktree-files ()
   (--keep (and (= (aref it 0) ?S)
