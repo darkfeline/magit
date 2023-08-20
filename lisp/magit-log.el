@@ -1266,7 +1266,7 @@ Do not add this to a hook variable."
           "\\(?:\\(?:[^@\n]+@{\\(?6:[^}\n]+\\)}\0" ; date
                                                  ;;; refsub
           "\\(?10:merge \\|autosave \\|restart \\|rewritten \\|[^:\n]+: \\)?"
-          "\\(?2:.*\\)?\\)\\|\0\\)$"))             ; msg
+          "\\(?2:.*\\)\\)\\|\0\\)$"))              ; msg
 
 (defconst magit-reflog-subject-re
   (concat "\\(?1:[^ ]+\\) ?"                       ; command
@@ -1388,8 +1388,7 @@ Do not add this to a hook variable."
             (insert (magit-reflog-format-subject
                      (substring refsub 0
                                 (if (string-search ":" refsub) -2 -1))))))
-        (when msg
-          (insert (funcall magit-log-format-message-function hash msg)))
+        (insert (funcall magit-log-format-message-function hash msg))
         (when (and refs magit-log-show-refname-after-summary)
           (insert ?\s)
           (insert (magit-format-ref-labels refs)))
@@ -1460,7 +1459,7 @@ Do not add this to a hook variable."
       (magit--put-face (match-beginning 0) (1- boundary)
                        'magit-keyword-squash msg))
     (when magit-log-highlight-keywords
-      (while (string-match "\\[[^[]*?]" msg boundary)
+      (while (string-match "\\[[^][]*]" msg boundary)
         (setq boundary (match-end 0))
         (magit--put-face (match-beginning 0) boundary
                          'magit-keyword msg))))
