@@ -898,6 +898,7 @@ and `:slant'."
    ("-W" "Show surrounding functions"     ("-W" "--function-context"))]
   ["Tune arguments"
    (magit-diff:--diff-algorithm)
+   (magit-diff:--diff-merges)
    (magit-diff:-M)
    (magit-diff:-C)
    (5 "-R" "Reverse sides"                "-R")
@@ -932,6 +933,7 @@ and `:slant'."
    ("-W" "Show surrounding functions"     ("-W" "--function-context"))]
   ["Tune arguments"
    (magit-diff:--diff-algorithm)
+   (magit-diff:--diff-merges)
    (magit-diff:-M)
    (magit-diff:-C)
    (5 "-R" "Reverse sides"                "-R"
@@ -945,8 +947,8 @@ and `:slant'."
     :if-derived magit-diff-mode)]
   [["Refresh"
     ("g" "buffer"                   magit-diff-refresh)
-    ("s" "buffer and set defaults"  transient-set  :transient nil)
-    ("w" "buffer and save defaults" transient-save :transient nil)]
+    ("s" "buffer and set defaults"  transient-set-and-exit)
+    ("w" "buffer and save defaults" transient-save-and-exit)]
    ["Toggle"
     ("t" "hunk refinement"          magit-diff-toggle-refine-hunk)
     ("F" "file filter"              magit-diff-toggle-file-filter)
@@ -1010,14 +1012,32 @@ and `:slant'."
   :class 'transient-option
   :key "-A"
   :argument "--diff-algorithm="
-  :reader #'magit-diff-select-algorithm)
+  :reader #'magit-diff-select-algorithm
+  :always-read t)
 
 (defun magit-diff-select-algorithm (&rest _ignore)
   (magit-read-char-case nil t
-    (?d "[d]efault"   "default")
-    (?m "[m]inimal"   "minimal")
-    (?p "[p]atience"  "patience")
-    (?h "[h]istogram" "histogram")))
+    (?u "[u]nspecified" nil)
+    (?d "[d]efault"     "default")
+    (?m "[m]inimal"     "minimal")
+    (?p "[p]atience"    "patience")
+    (?h "[h]istogram"   "histogram")))
+
+(transient-define-argument magit-diff:--diff-merges ()
+  :description "Diff merges"
+  :class 'transient-option
+  :key "-X"
+  :argument "--diff-merges="
+  :reader #'magit-diff-select-merges
+  :always-read t)
+
+(defun magit-diff-select-merges (&rest _ignore)
+  (magit-read-char-case nil t
+    (?u "[u]nspecified"    nil)
+    (?o "[o]ff"            "off")
+    (?f "[f]irst-parent"   "first-parent")
+    (?c "[c]ombined"       "combined")
+    (?d "[d]ense-combined" "dense-combined")))
 
 (transient-define-argument magit-diff:--ignore-submodules ()
   :description "Ignore submodules"
@@ -2068,13 +2088,17 @@ keymap is the parent of their keymaps."
   :doc "Keymap for `file' sections."
   :parent magit-diff-section-base-map)
 
+(defvar-keymap magit-hunk-section-smerge-map
+  :doc "Keymap bound to `smerge-command-prefix' in `magit-hunk-section-map'."
+  "RET" #'magit-smerge-keep-current
+  "u"   #'magit-smerge-keep-upper
+  "b"   #'magit-smerge-keep-base
+  "l"   #'magit-smerge-keep-lower)
+
 (defvar-keymap magit-hunk-section-map
   :doc "Keymap for `hunk' sections."
   :parent magit-diff-section-base-map
-  "C-c ^ RET" #'magit-smerge-keep-current
-  "C-c ^ u"   #'magit-smerge-keep-upper
-  "C-c ^ b"   #'magit-smerge-keep-base
-  "C-c ^ l"   #'magit-smerge-keep-lower)
+  (key-description smerge-command-prefix) magit-hunk-section-smerge-map)
 
 (defconst magit-diff-conflict-headline-re
   (concat "^" (regexp-opt
@@ -2580,7 +2604,7 @@ Staging and applying changes is documented in info node
 (defun magit-insert-revision-diff ()
   "Insert the diff into this `magit-revision-mode' buffer."
   (magit--insert-diff t
-    "show" "-p" "--cc" "--format=" "--no-prefix"
+    "show" "-p" "--format=" "--no-prefix"
     (and (member "--stat" magit-buffer-diff-args) "--numstat")
     magit-buffer-diff-args
     (magit--rev-dereference magit-buffer-revision)
@@ -3500,13 +3524,17 @@ last (visual) lines of the region."
               ;; edge of the window.
               'cursor t))
 
-;;; Hunk Utilities
+;;; Utilities
 
 (defun magit-diff-inside-hunk-body-p ()
   "Return non-nil if point is inside the body of a hunk."
   (and (magit-section-match 'hunk)
        (and-let* ((content (oref (magit-current-section) content)))
          (> (magit-point) content))))
+
+(defun magit-diff--combined-p (section)
+  (cl-assert (cl-typep section 'magit-file-section))
+  (string-match-p "\\`diff --\\(combined\\|cc\\)" (oref section value)))
 
 ;;; Diff Extract
 

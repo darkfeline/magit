@@ -15,6 +15,7 @@
 ;; Package-Requires: (
 ;;     (emacs "25.1")
 ;;     (compat "29.1.3.4")
+;;     (seq "2.24")
 ;;     (transient "0.3.6")
 ;;     (with-editor "3.0.5"))
 
@@ -119,6 +120,12 @@
 
 (require 'compat)
 (require 'subr-x)
+
+(when (and (featurep' seq)
+           (not (fboundp 'seq-keep)))
+  (unload-feature 'seq 'force))
+(require 'seq)
+
 (require 'log-edit)
 (require 'ring)
 (require 'rx)
@@ -936,17 +943,28 @@ have the form \"NAME <EMAIL>\"."
 (defun git-commit-insert-header (header name email)
   (setq header (format "%s: %s <%s>" header name email))
   (save-excursion
-    (goto-char (point-max))
-    (cond ((re-search-backward "^[-a-zA-Z]+: [^<]+? <[^>]+>" nil t)
-           (end-of-line)
-           (insert ?\n header)
-           (unless (= (char-after) ?\n)
-             (insert ?\n)))
-          (t
-           (while (re-search-backward (concat "^" comment-start) nil t))
-           (unless (looking-back "\n\n" nil)
-             (insert ?\n))
-           (insert header ?\n)))
+    (let ((leading-comment-end nil))
+      ;; Make sure we skip forward past any leading comments.
+      (goto-char (point-min))
+      (while (looking-at comment-start)
+        (forward-line))
+      (setq leading-comment-end (point))
+      (goto-char (point-max))
+      (cond
+       ;; Look backwards for existing headers.
+       ((re-search-backward "^[-a-zA-Z]+: [^<\n]+? <[^>\n]+>" nil t)
+        (end-of-line)
+        (insert ?\n header)
+        (unless (= (char-after) ?\n)
+          (insert ?\n)))
+       ;; Or place the new header right before the first non-leading
+       ;; comments.
+       (t
+        (while (re-search-backward (concat "^" comment-start)
+                                   leading-comment-end t))
+        (unless (looking-back "\n\n" nil)
+          (insert ?\n))
+        (insert header ?\n))))
     (unless (or (eobp) (= (char-after) ?\n))
       (insert ?\n))))
 

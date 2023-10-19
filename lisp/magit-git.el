@@ -843,7 +843,7 @@ Also see `magit-git-config-p'."
 (defun magit-gitdir (&optional directory)
   "Return the absolute and resolved path of the .git directory.
 
-If the `GIT_DIR' environment variable is define then return that.
+If the `GIT_DIR' environment variable is defined, return that.
 Otherwise return the .git directory for DIRECTORY, or if that is
 nil, then for `default-directory' instead.  If the directory is
 not located inside a Git repository, then return nil."
@@ -1098,7 +1098,7 @@ tracked file."
                    (magit-headish) "--" files))
 
 (defun magit-unstaged-files (&optional nomodules files)
-  (magit-git-items "diff-files" "-z" "--name-only"
+  (magit-git-items "diff-files" "-z" "--name-only" "--diff-filter=u"
                    (and nomodules "--ignore-submodules")
                    "--" files))
 
@@ -1928,31 +1928,30 @@ where COMMITS is the number of commits in TAG but not in REV."
             str))))))
 
 (defun magit-list-refs (&optional namespaces format sortby)
-  "Return list of references.
+  "Return list of references, excluding symbolic references.
 
 When NAMESPACES is non-nil, list refs from these namespaces
 rather than those from `magit-list-refs-namespaces'.
 
 FORMAT is passed to the `--format' flag of `git for-each-ref'
-and defaults to \"%(refname)\".  If the format is \"%(refname)\"
-or \"%(refname:short)\", then drop the symbolic-ref `HEAD'.
+and defaults to \"%(refname)\".
 
 SORTBY is a key or list of keys to pass to the `--sort' flag of
 `git for-each-ref'.  When nil, use `magit-list-refs-sortby'"
   (unless format
     (setq format "%(refname)"))
-  (let ((refs (magit-git-lines "for-each-ref"
-                               (concat "--format=" format)
-                               (--map (concat "--sort=" it)
-                                      (pcase (or sortby magit-list-refs-sortby)
-                                        ((and val (pred stringp)) (list val))
-                                        ((and val (pred listp)) val)))
-                               (or namespaces magit-list-refs-namespaces))))
-    (if (member format '("%(refname)" "%(refname:short)"))
-        (let ((case-fold-search nil))
-          (--remove (string-match-p "\\(\\`\\|/\\)HEAD\\'" it)
-                    refs))
-      refs)))
+  (seq-keep (lambda (line)
+              (pcase-let* ((`(,symrefp ,value)
+                            (split-string line ""))
+                           (symrefp (not (equal symrefp ""))))
+                (and (not symrefp) value)))
+            (magit-git-lines "for-each-ref"
+                             (concat "--format=%(symref)" format)
+                             (--map (concat "--sort=" it)
+                                    (pcase (or sortby magit-list-refs-sortby)
+                                      ((and val (pred stringp)) (list val))
+                                      ((and val (pred listp)) val)))
+                             (or namespaces magit-list-refs-namespaces))))
 
 (defun magit-list-branches ()
   (magit-list-refs (list "refs/heads" "refs/remotes")))
@@ -2364,22 +2363,21 @@ and this option only controls what face is used.")
               (magit-branch-remote  (push name remotes))
               (t                    (push name other)))))
         (setq remotes
-              (delq nil
-                    (mapcar
-                     (lambda (name)
-                       (if (string-match "\\`\\([^/]*\\)/\\(.*\\)\\'" name)
-                           (let ((r (match-string 1 name))
-                                 (b (match-string 2 name)))
-                             (and (not (equal b "HEAD"))
-                                  (if (equal (concat "refs/remotes/" name)
-                                             (magit-git-string
-                                              "symbolic-ref"
-                                              (format "refs/remotes/%s/HEAD" r)))
-                                      (magit--propertize-face
-                                       name 'magit-branch-remote-head)
-                                    name)))
-                         name))
-                     remotes)))
+              (seq-keep
+               (lambda (name)
+                 (if (string-match "\\`\\([^/]*\\)/\\(.*\\)\\'" name)
+                     (let ((r (match-string 1 name))
+                           (b (match-string 2 name)))
+                       (and (not (equal b "HEAD"))
+                            (if (equal (concat "refs/remotes/" name)
+                                       (magit-git-string
+                                        "symbolic-ref"
+                                        (format "refs/remotes/%s/HEAD" r)))
+                                (magit--propertize-face
+                                 name 'magit-branch-remote-head)
+                              name)))
+                   name))
+               remotes))
         (let* ((current (magit-get-current-branch))
                (target  (magit-get-upstream-branch current)))
           (dolist (name branches)
