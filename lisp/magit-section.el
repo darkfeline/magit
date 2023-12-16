@@ -56,11 +56,11 @@
   (unload-feature 'seq 'force))
 (require 'seq)
 ;; Furthermore, by default `package' just silently refuses to upgrade.
-(unless (fboundp 'seq-keep)
-  (display-warning 'magit (substitute-command-keys "\
-Magit requires `seq' >= 2.24, but due to
-bad defaults, Emacs' package manager, refuses to upgrade this
-and other built-in packages to higher releases from GNU Elpa.
+(defconst magit--core-upgrade-instructions "\
+Magit requires `%s' >= %s,
+but due to bad defaults, Emacs' package manager, refuses to
+upgrade this and other built-in packages to higher releases
+from GNU Elpa.
 
 To fix this, you have to add this to your init file:
 
@@ -69,21 +69,23 @@ To fix this, you have to add this to your init file:
 Then evaluate that expression by placing the cursor after it
 and typing \\[eval-last-sexp].
 
-Once you have done that, you have to explicitly upgrade `seq':
+Once you have done that, you have to explicitly upgrade `%s':
 
-  \\[package-upgrade] seq \\`RET'
+  \\[package-upgrade] %s \\`RET'
 
 Then you also must make sure the updated version is loaded,
 by evaluating this form:
 
-  (progn (unload-feature 'seq t) (require 'seq))
-
-Until you do this, you will get random errors about `seq-keep'
-being undefined while using Magit.
+  (progn (unload-feature '%s t) (require '%s))
 
 If you don't use the `package' package manager but still get
 this warning, then your chosen package manager likely has a
-similar defect.") :emergency))
+similar defect.")
+(unless (fboundp 'seq-keep)
+  (display-warning 'magit (substitute-command-keys
+                           (format magit--core-upgrade-instructions
+                                   'seq "2.24" 'seq 'seq 'seq 'seq))
+                   :emergency))
 
 (require 'cursor-sensor)
 (require 'format-spec)
@@ -588,12 +590,14 @@ instead of in the one whose root `magit-root-section' is."
         (pop ident))
       section)))
 
-(defun magit-section-lineage (section)
+(defun magit-section-lineage (section &optional raw)
   "Return the lineage of SECTION.
-The return value has the form (TYPE...)."
-  (cons (oref section type)
+If optional RAW is non-nil, return a list of section object
+beginning with SECTION, otherwise return a list of section
+types."
+  (cons (if raw section (oref section type))
         (and-let* ((parent (oref section parent)))
-          (magit-section-lineage parent))))
+          (magit-section-lineage parent raw))))
 
 (defvar magit-insert-section--current nil "For internal use only.")
 (defvar magit-insert-section--parent  nil "For internal use only.")
@@ -1522,15 +1526,21 @@ like `progn'.  Otherwise BODY isn't evaluated until the section
 is explicitly expanded."
   (declare (indent 0))
   (let ((f (cl-gensym))
-        (s (cl-gensym)))
+        (s (cl-gensym))
+        (l (cl-gensym)))
     `(let ((,f (lambda () ,@body))
            (,s magit-insert-section--current))
        (if (oref ,s hidden)
            (oset ,s washer
                  (lambda ()
-                   (funcall ,f)
-                   (magit-section-maybe-remove-heading-map ,s)
-                   (magit-section-maybe-remove-visibility-indicator ,s)))
+                   (let ((,l (magit-section-lineage ,s t)))
+                     (dolist (s ,l)
+                       (set-marker-insertion-type (oref s end) t))
+                     (funcall ,f)
+                     (dolist (s ,l)
+                       (set-marker-insertion-type (oref s end) nil))
+                     (magit-section-maybe-remove-heading-map ,s)
+                     (magit-section-maybe-remove-visibility-indicator ,s))))
          (funcall ,f)))))
 
 (defun magit-insert-headers (hook)
