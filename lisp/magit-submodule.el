@@ -663,7 +663,8 @@ These sections can be expanded to show the respective commits."
          (lambda (module)
            (let ((default-directory
                   (expand-file-name (file-name-as-directory module))))
-             (and (file-exists-p ".git")
+             (if (file-exists-p ".git")
+                 (and
                   (or (not magit-submodule-list-predicate)
                       (funcall magit-submodule-list-predicate module))
                   (list module
@@ -674,7 +675,17 @@ These sections can be expanded to show the respective commits."
                                                      (:width ,width)
                                                      ,@props))
                                        ""))
-                                 magit-repolist-columns))))))
+                                 magit-repolist-columns))))
+               (list module
+                     (vconcat
+                      (mapcar (pcase-lambda (`(,title ,width ,fn ,props))
+                                (pcase title
+                                  ("Path" module)
+                                  ("Version" (let ((s "(unpopulated)"))
+                                               (magit--put-face 0 (length s) 'shadow s)
+                                               s))
+                                  (_ "")))
+                              magit-repolist-columns))))))
          (magit-list-module-paths)))
   (message "Listing submodules...")
   (tabulated-list-init-header)
