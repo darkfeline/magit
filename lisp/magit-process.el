@@ -448,10 +448,9 @@ conversion."
     (apply #'process-file process infile buffer display args)))
 
 (defun magit-process-environment ()
-  ;; The various w32 hacks are only applicable when running on the
-  ;; local machine.  As of Emacs 25.1, a local binding of
-  ;; process-environment different from the top-level value affects
-  ;; the environment used in
+  ;; The various w32 hacks are only applicable when running on the local
+  ;; machine.  A local binding of process-environment different from the
+  ;; top-level value affects the environment used in
   ;; tramp-sh-handle-{start-file-process,process-file}.
   (let ((local (not (file-remote-p default-directory))))
     (append magit-git-environment
@@ -669,6 +668,11 @@ Magit status buffer."
         process))))
 
 ;;; Process Internals
+
+(defclass magit-process-section (magit-section)
+  ((process :initform nil)))
+
+(setf (alist-get 'process magit--section-type-alist) 'magit-process-section)
 
 (defun magit-process-setup (program args)
   (magit-process-set-mode-line program args)
