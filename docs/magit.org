@@ -6698,10 +6698,11 @@ push-remote, see [[*The Two Remotes]].
 
   This command fetches from all remotes.
 
-- Key: f m (magit-submodule-fetch) ::
+- Key: f m (magit-fetch-modules) ::
 
-  This command fetches all submodules.  With a prefix argument it
-  fetches all remotes of all submodules.
+  This command fetches all submodules.  With a prefix argument, it
+  acts as a transient prefix command, allowing the caller to set
+  options.
 
 - User Option: magit-pull-or-fetch ::
 
@@ -7155,12 +7156,12 @@ suitable modules.
 
 - Key: o f (magit-fetch-modules) ::
 
-  This command fetches all populated modules.
+  This command fetches all populated modules.  With a prefix argument,
+  it acts as a transient prefix command, allowing the caller to set
+  options.
 
-  Option ~magit-fetch-modules-jobs~ controls how many submodules are
-  being fetched in parallel.  Also fetch the super-repository, because
-  ~git fetch~ does not support not doing that.  With a prefix argument
-  fetch all remotes.
+  Also fetch the super-repository, because ~git fetch~ does not
+  support not doing that.
 
 ** Subtree
 
