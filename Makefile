@@ -22,7 +22,8 @@ help:
 	$(info make [all]            - compile elisp and documentation)
 	$(info make lisp             - compile elisp)
 	$(info make redo             - re-compile elisp)
-	$(info make docs             - generate info manuals)
+	$(info make docs             - generate all manual formats)
+	$(info make texi             - generate texi manuals)
 	$(info make info             - generate info manuals)
 	$(info make html             - generate html manual files)
 	$(info make html-dir         - generate html manual directories)
@@ -58,7 +59,6 @@ help:
 	$(info Release Management)
 	$(info ==================)
 	$(info )
-	$(info make texi             - regenerate texi from org)
 	$(info make authors          - regenerate AUTHORS.md)
 	$(info make publish          - publish snapshot manuals)
 	$(info make release          - publish release manuals)
@@ -78,7 +78,7 @@ lisp:
 	@$(MAKE) -C test lisp
 
 docs:
-	@$(MAKE) -C docs all
+	@$(MAKE) -C docs docs
 
 info:
 	@$(MAKE) -C docs info

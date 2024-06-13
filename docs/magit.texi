@@ -3300,7 +3300,6 @@ the <a href="http://git-scm.com/docs/git-log">git-log(1)</a> manpage.
 @iftex
 the git-log(1) manpage.
 @end iftex
-
 The switch @code{++order=VALUE} is converted to one of @code{--author-date-order},
 @code{--date-order}, or @code{--topo-order} before being passed to @code{git log}.
 
@@ -6717,7 +6716,6 @@ git config --global remote.autoSetupMerge always
 @end example
 
 For more information about these variables you should also see
-
 @ifinfo
 @ref{git-config,,,gitman,}.
 @end ifinfo
@@ -10044,7 +10042,7 @@ numbers of tags.  It would therefore be a good idea to disable
 When showing logs, Magit limits the number of commits initially shown
 in the hope that this avoids unnecessary work.  When @code{--graph} is
 used, then this unfortunately does not have the desired effect for
-large histories.  Junio, Git's maintainer, said on the git mailing
+large histories.  Junio, Git's maintainer, said on the Git mailing
 list (@uref{https://www.spinics.net/lists/git/msg232230.html}): "@code{--graph} wants
 to compute the whole history and the max-count only affects the output
 phase after @code{--graph} does its computation".
@@ -11197,8 +11195,8 @@ undo that setting in Magit by customizing @code{magit-git-global-arguments}.
 @node Point is wrong in the @code{COMMIT_EDITMSG} buffer
 @appendixsubsec Point is wrong in the @code{COMMIT_EDITMSG} buffer
 
-Neither Magit nor `git-commit` fiddle with point in the buffer used to
-write commit messages, so something else must be doing it.
+Neither Magit nor @code{git-commit.el} fiddle with point in the buffer used
+to write commit messages, so something else must be doing it.
 
 You have probably globally enabled a mode which restores point in
 file-visiting buffers.  It might be a bit surprising, but when you
