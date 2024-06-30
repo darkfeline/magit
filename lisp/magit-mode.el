@@ -553,7 +553,7 @@ to the kill ring."
 
 Magit is documented in info node `(magit)'."
   :group 'magit
-  (hack-dir-local-variables-non-file-buffer)
+  (magit-hack-dir-local-variables)
   (face-remap-add-relative 'header-line 'magit-header-line)
   (setq mode-line-process (magit-repository-local-get 'mode-line-process))
   (setq-local revert-buffer-function #'magit-refresh-buffer)
@@ -561,6 +561,13 @@ Magit is documented in info node `(magit)'."
   (setq-local imenu-create-index-function #'magit--imenu-create-index)
   (setq-local imenu-default-goto-function #'magit--imenu-goto-function)
   (setq-local isearch-filter-predicate #'magit-section--open-temporarily))
+
+(defun magit-hack-dir-local-variables ()
+  "Like `hack-dir-local-variables-non-file-buffer' but ignore some variables."
+  (let ((ignored-local-variables
+         `(show-trailing-whitespace
+           ,@ignored-local-variables)))
+    (hack-dir-local-variables-non-file-buffer)))
 
 ;;; Local Variables
 
@@ -1412,9 +1419,9 @@ repositories."
   "Zap caches for the current repository.
 
 Remove the repository's entry from `magit-repository-local-cache',
-remove the host's entry from `magit--host-git-version-cache', set
-`magit-section-visibility-cache' to nil for all Magit buffers of
-the repository and set `magit--libgit-available-p' to `unknown'.
+remove the host's entry from `magit--host-git-version-cache', and
+set `magit-section-visibility-cache' to nil for all Magit buffers
+of the repository.
 
 With a prefix argument or if optional ALL is non-nil, discard the
 mentioned caches completely."
@@ -1438,8 +1445,7 @@ mentioned caches completely."
                             :key #'car :test #'equal)))
          (dolist (buffer (magit-mode-get-buffers))
            (with-current-buffer buffer
-             (setq magit-section-visibility-cache nil)))))
-  (setq magit--libgit-available-p 'unknown))
+             (setq magit-section-visibility-cache nil))))))
 
 ;;; Utilities
 
