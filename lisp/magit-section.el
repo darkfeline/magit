@@ -11,7 +11,7 @@
 ;; Package-Version: 3.3.0.50-git
 ;; Package-Requires: (
 ;;     (emacs "26.1")
-;;     (compat "29.1.4.5")
+;;     (compat "30.0.0.0")
 ;;     (dash "2.19.1")
 ;;     (seq "2.24"))
 
@@ -2149,6 +2149,7 @@ If optional SECTION is nil, use the current section."
 FUNCTION has to move point forward or return nil."
   (while (and (not (eobp)) (funcall function))))
 
+;;;###autoload
 (defun magit-add-section-hook (hook function &optional at append local)
   "Add to the value of section hook HOOK the function FUNCTION.
 

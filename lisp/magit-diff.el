@@ -80,6 +80,7 @@
                   (&optional whoami file-name))
 (declare-function magit-diff-edit-hunk-commit "magit-extras" (file))
 (declare-function magit-smerge-keep-current "magit-apply" ())
+(declare-function magit-smerge-keep-all "magit-apply" ())
 (declare-function magit-smerge-keep-upper "magit-apply" ())
 (declare-function magit-smerge-keep-base "magit-apply" ())
 (declare-function magit-smerge-keep-lower "magit-apply" ())
@@ -1539,9 +1540,9 @@ The visited version depends on what changes the diff is about.
 
 1. If the diff shows uncommitted changes (i.e., stage or unstaged
    changes), then visit the file in the working tree (i.e., the
-   same \"real\" file that `find-file' would visit.  In all other
-   cases visit a \"blob\" (i.e., the version of a file as stored
-   in some commit).
+   same \"real\" file that `find-file' would visit).  In all
+   other cases visit a \"blob\" (i.e., the version of a file as
+   stored in some commit).
 
 2. If point is on a removed line, then visit the blob for the
    first parent of the commit that removed that line, i.e., the
@@ -1673,6 +1674,7 @@ the Magit-Status buffer for DIRECTORY."
                    (magit-diff-visit--range-from spec)
                  (magit-diff-visit--range-to spec)))
          (buf  (if (or goto-worktree
+                       (equal magit-buffer-typearg "--no-index")
                        (and (not (stringp rev))
                             (or magit-diff-visit-avoid-head-blob
                                 (not goto-from))))
@@ -1705,9 +1707,10 @@ the Magit-Status buffer for DIRECTORY."
                             (magit-current-section) nil)
                            (oref file-section source))
                       (oref file-section value))))
-      (if expand
-          (expand-file-name file (magit-toplevel))
-        file)
+      (cond ((equal magit-buffer-typearg "--no-index")
+             (concat "/" file))
+            (expand (expand-file-name file (magit-toplevel)))
+            (file))
     (when assert
       (user-error "No file at point"))))
 
@@ -2074,6 +2077,7 @@ keymap is the parent of their keymaps."
 (defvar-keymap magit-hunk-section-smerge-map
   :doc "Keymap bound to `smerge-command-prefix' in `magit-hunk-section-map'."
   "RET" #'magit-smerge-keep-current
+  "a"   #'magit-smerge-keep-all
   "u"   #'magit-smerge-keep-upper
   "b"   #'magit-smerge-keep-base
   "l"   #'magit-smerge-keep-lower)
