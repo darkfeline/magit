@@ -311,6 +311,7 @@ Used when `magit-process-display-mode-line-error' is non-nil."
 (defvar-keymap magit-process-mode-map
   :doc "Keymap for `magit-process-mode'."
   :parent magit-mode-map
+  "<remap> <magit-refresh>"      #'undefined
   "<remap> <magit-delete-thing>" #'magit-process-kill)
 
 (define-derived-mode magit-process-mode magit-mode "Magit Process"
@@ -691,8 +692,10 @@ Magit status buffer."
                 (prog1 (magit-process-insert-section pwd program args nil nil)
                   (backward-char 1))))))
 
-(defun magit-process-insert-section (pwd program args &optional errcode errlog)
+(defun magit-process-insert-section
+    (pwd program args &optional errcode errlog face)
   (let ((inhibit-read-only t)
+        (magit-insert-section--current nil)
         (magit-insert-section--parent magit-root-section)
         (magit-insert-section--oldroot nil))
     (goto-char (1- (point-max)))
@@ -703,11 +706,14 @@ Magit status buffer."
                 "run "))
       (when magit-process-timestamp-format
         (insert (format-time-string magit-process-timestamp-format) " "))
-      (unless (equal (expand-file-name pwd)
-                     (expand-file-name default-directory))
-        (insert (file-relative-name pwd default-directory) ?\s))
-      (insert (magit-process--format-arguments program args))
-      (magit-insert-heading)
+      (let ((cmd (concat
+                  (and (not (equal
+                             (file-name-as-directory (expand-file-name pwd))
+                             (file-name-as-directory (expand-file-name
+                                                      default-directory))))
+                       (concat (file-relative-name pwd default-directory) " "))
+                  (magit-process--format-arguments program args))))
+        (magit-insert-heading (if face (propertize cmd 'face face) cmd)))
       (when errlog
         (if (bufferp errlog)
             (insert (with-current-buffer errlog
@@ -808,7 +814,7 @@ Magit status buffer."
       ;; Find last ^M in string.  If one was found, ignore
       ;; everything before it and delete the current line.
       (when-let ((ret-pos (cl-position ?\r string :from-end t)))
-        (cl-callf substring string (1+ ret-pos))
+        (setq string (substring string (1+ ret-pos)))
         (delete-region (line-beginning-position) (point)))
       (setq string (magit-process-remove-bogus-errors string))
       (insert (propertize string 'magit-section
@@ -1180,31 +1186,7 @@ Limited by `magit-process-error-tooltip-max-lines'."
     (dired-uncache default-dir))
   (when (buffer-live-p process-buf)
     (with-current-buffer process-buf
-      (let ((inhibit-read-only t)
-            (marker (oref section start)))
-        (goto-char marker)
-        (save-excursion
-          (delete-char 3)
-          (set-marker-insertion-type marker nil)
-          (insert (propertize (format "%3s" arg)
-                              'magit-section section
-                              'font-lock-face (if (= arg 0)
-                                                  'magit-process-ok
-                                                'magit-process-ng)))
-          (set-marker-insertion-type marker t))
-        (when magit-process-finish-apply-ansi-colors
-          (ansi-color-apply-on-region (oref section content)
-                                      (oref section end)))
-        (if (= (oref section end)
-               (+ (line-end-position) 2))
-            (save-excursion
-              (goto-char (1+ (line-end-position)))
-              (delete-char -1)
-              (oset section content nil))
-          (when (and (= arg 0)
-                     (not (--any-p (eq (window-buffer it) process-buf)
-                                   (window-list))))
-            (magit-section-hide section))))))
+      (magit-process-finish-section section arg)))
   (if (= arg 0)
       ;; Unset the `mode-line-process' value upon success.
       (magit-process-unset-mode-line default-dir)
@@ -1236,6 +1218,34 @@ Limited by `magit-process-error-tooltip-max-lines'."
                    "See")
                  (buffer-name process-buf))))))
   arg)
+
+(defun magit-process-finish-section (section exit-code)
+  (let ((inhibit-read-only t)
+        (buffer (current-buffer))
+        (marker (oref section start)))
+    (goto-char marker)
+    (save-excursion
+      (delete-char 3)
+      (set-marker-insertion-type marker nil)
+      (insert (propertize (format "%3s" exit-code)
+                          'magit-section section
+                          'font-lock-face (if (= exit-code 0)
+                                              'magit-process-ok
+                                            'magit-process-ng)))
+      (set-marker-insertion-type marker t))
+    (when magit-process-finish-apply-ansi-colors
+      (ansi-color-apply-on-region (oref section content)
+                                  (oref section end)))
+    (if (= (oref section end)
+           (+ (line-end-position) 2))
+        (save-excursion
+          (goto-char (1+ (line-end-position)))
+          (delete-char -1)
+          (oset section content nil))
+      (when (and (= exit-code 0)
+                 (not (--any-p (eq (window-buffer it) buffer)
+                               (window-list))))
+        (magit-section-hide section)))))
 
 (defun magit-process-display-buffer (process)
   (when (process-live-p process)
