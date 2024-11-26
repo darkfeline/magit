@@ -2244,6 +2244,10 @@ By default the following functions are also members of that hook:
   directories.  But the directory sections can then be expanded using
   ~TAB~.
 
+  If the first element of ~magit-buffer-diff-files~ is a directory, then
+  limit the list to files below that.  The value of that variable can
+  be set using ~D -- DIRECTORY RET g~.
+
 - Function: magit-insert-unstaged-changes ::
 
   Insert section showing unstaged changes.
@@ -6419,11 +6423,16 @@ Also see [[man:git-stash]]
 
   Apply a stash to the working tree.
 
+  When using a Git release before v2.38.0, simply run ~git stash apply~
+  or with a prefix argument ~git stash apply --index~.
+
+  When using Git v2.38.0 or later, behave more intelligently:
+
   First try ~git stash apply --index~, which tries to preserve
   the index stored in the stash, if any.  This may fail because
   applying the stash could result in conflicts and those have to
   be stored in the index, making it impossible to also store the
-  stash's index there as well.
+  stash's index there.
 
   If the above failed, then try ~git stash apply~.  This fails
   (with or without ~--index~) if there are any uncommitted
@@ -6444,11 +6453,16 @@ Also see [[man:git-stash]]
   stash can be applied without any conflicts, and while preserving
   the stash's index) then remove the stash from stash list.
 
+  When using a Git release before v2.38.0, simply run ~git stash pop~
+  or with a prefix argument ~git stash pop --index~.
+
+  When using Git v2.38.0 or later, behave more intelligently:
+
   First try ~git stash pop --index~, which tries to preserve
   the index stored in the stash, if any.  This may fail because
   applying the stash could result in conflicts and those have to
   be stored in the index, making it impossible to also store the
-  stash's index there as well.
+  stash's index there.
 
   If the above failed, then try ~git stash apply~.  This fails
   (with or without ~--index~) if there are any uncommitted
