@@ -1,6 +1,6 @@
 ;;; magit-diff.el --- Inspect Git diffs  -*- lexical-binding:t -*-
 
-;; Copyright (C) 2008-2024 The Magit Project Contributors
+;; Copyright (C) 2008-2025 The Magit Project Contributors
 
 ;; Author: Jonas Bernoulli <emacs.magit@jonas.bernoulli.dev>
 ;; Maintainer: Jonas Bernoulli <emacs.magit@jonas.bernoulli.dev>
@@ -90,6 +90,16 @@
   (cl-pushnew 'action-type eieio--known-slot-names)
   (cl-pushnew 'target eieio--known-slot-names))
 
+(define-obsolete-variable-alias 'magit-diff-section-base-map
+  'magit-diff-section-map "Magit 4.0.0")
+
+(define-obsolete-variable-alias 'magit-wash-message-hook
+  'magit-revision-wash-message-hook "Magit 4.2.1")
+
+(make-obsolete-variable 'magit-diff-highlight-keywords
+                        'magit-revision-wash-message-hook
+                        "Magit 4.2.1")
+
 ;;; Options
 ;;;; Diff Mode
 
@@ -139,8 +149,8 @@ member of `magit-section-highlight-hook', which see."
   :type 'boolean)
 
 (defcustom magit-diff-highlight-hunk-region-functions
-  '(magit-diff-highlight-hunk-region-dim-outside
-    magit-diff-highlight-hunk-region-using-overlays)
+  (list #'magit-diff-highlight-hunk-region-dim-outside
+        #'magit-diff-highlight-hunk-region-using-overlays)
   "The functions used to highlight the hunk-internal region.
 
 `magit-diff-highlight-hunk-region-dim-outside' overlays the outside
@@ -166,10 +176,10 @@ calling the face function instead."
   :set-after '(magit-diff-show-lines-boundaries)
   :group 'magit-diff
   :type 'hook
-  :options '(magit-diff-highlight-hunk-region-dim-outside
-             magit-diff-highlight-hunk-region-using-underline
-             magit-diff-highlight-hunk-region-using-overlays
-             magit-diff-highlight-hunk-region-using-face))
+  :options (list #'magit-diff-highlight-hunk-region-dim-outside
+                 #'magit-diff-highlight-hunk-region-using-underline
+                 #'magit-diff-highlight-hunk-region-using-overlays
+                 #'magit-diff-highlight-hunk-region-using-face))
 
 (defcustom magit-diff-unmarked-lines-keep-foreground t
   "Whether `magit-diff-highlight-hunk-region-dim-outside' preserves foreground.
@@ -298,12 +308,6 @@ that many spaces.  Otherwise, highlight neither."
   :group 'magit-diff
   :type 'boolean)
 
-(defcustom magit-diff-highlight-keywords t
-  "Whether to highlight bracketed keywords in commit messages."
-  :package-version '(magit . "2.12.0")
-  :group 'magit-diff
-  :type 'boolean)
-
 (defcustom magit-diff-extra-stat-arguments nil
   "Additional arguments to be used alongside `--stat'.
 
@@ -344,16 +348,34 @@ and `--compact-summary'.  See the git-diff(1) manpage."
              goto-address-mode))
 
 (defcustom magit-revision-sections-hook
-  '(magit-insert-revision-tag
-    magit-insert-revision-headers
-    magit-insert-revision-message
-    magit-insert-revision-notes
-    magit-insert-revision-diff
-    magit-insert-xref-buttons)
+  (list #'magit-insert-revision-tag
+        #'magit-insert-revision-headers
+        #'magit-insert-revision-message
+        #'magit-insert-revision-notes
+        #'magit-insert-revision-diff
+        #'magit-insert-xref-buttons)
   "Hook run to insert sections into a `magit-revision-mode' buffer."
   :package-version '(magit . "2.3.0")
   :group 'magit-revision
   :type 'hook)
+
+(defcustom magit-revision-wash-message-hook
+  (list #'magit-highlight-squash-markers
+        #'magit-highlight-bracket-keywords)
+  "Functions used to highlight parts of a commit message.
+
+These functions are called in order, in a buffer narrowed to the commit
+message.  They should set text properties as they see fit, usually just
+`font-lock-face'.  Before each function is called, point is at the
+beginning of the narrowed region of the buffer.
+
+See also the related `magit-log-wash-summary-hook'.  You likely want to
+use the same functions for both hooks."
+  :package-version '(magit . "4.2.1")
+  :group 'magit-log
+  :type 'hook
+  :options (list #'magit-highlight-squash-markers
+                 #'magit-highlight-bracket-keywords))
 
 (defcustom magit-revision-headers-format "\
 Author:     %aN <%aE>
@@ -2050,9 +2072,6 @@ Staging and applying changes is documented in info node
 (cl-defmethod magit-menu-common-value ((_section magit-diff-section))
   (magit-diff-scope))
 
-(define-obsolete-variable-alias 'magit-diff-section-base-map
-  'magit-diff-section-map "Magit-Section 4.0.0")
-
 (defvar-keymap magit-diff-section-map
   :doc "Keymap for diff sections.
 The classes `magit-file-section' and `magit-hunk-section' derive
@@ -2697,7 +2716,8 @@ or a ref which is not a branch, then it inserts nothing."
           (save-excursion
             (magit--add-face-text-property (point)
                                            (progn (forward-line) (point))
-                                           'magit-diff-revision-summary)
+                                           'magit-diff-revision-summary
+                                           t nil t)
             (magit-insert-heading))
           (goto-char (point-max)))
       (insert "(no message)\n"))))
@@ -2726,7 +2746,8 @@ or a ref which is not a branch, then it inserts nothing."
                                         'font-lock-face 'magit-refname))))
           (magit--add-face-text-property (point)
                                          (progn (forward-line) (point))
-                                         'magit-diff-revision-summary)
+                                         'magit-diff-revision-summary
+                                         t nil t)
           (magit-insert-heading)
           (goto-char (point-max))
           (insert ?\n))))))
@@ -2746,15 +2767,22 @@ or a ref which is not a branch, then it inserts nothing."
       (let ((fill-column (min magit-revision-fill-summary-line
                               (window-width (get-buffer-window nil t)))))
         (fill-region (point) (line-end-position))))
-    (when magit-diff-highlight-keywords
-      (save-excursion
-        (while (re-search-forward "\\[[^[]*\\]" nil t)
-          (put-text-property (match-beginning 0)
-                             (match-end 0)
-                             'font-lock-face 'magit-keyword))))
-    (run-hook-wrapped 'magit-wash-message-hook
-                      (lambda (fn) (save-excursion (funcall fn))))
+    (run-hook-wrapped 'magit-revision-wash-message-hook
+                      (lambda (fn) (prog1 nil (save-excursion (funcall fn)))))
     (buffer-string)))
+
+(defun magit-highlight-squash-markers ()
+  "Highlight \"squash!\" and similar markers."
+  (when (looking-at "\\(?:squash\\|fixup\\)!")
+    (magit--add-face-text-property (match-beginning 0) (match-end 0)
+                                   'magit-keyword-squash)))
+
+(defun magit-highlight-bracket-keywords ()
+  "Highlight text between brackets."
+  (while (re-search-forward "\\[[^][]*]" nil t)
+    (put-text-property (match-beginning 0)
+                       (match-end 0)
+                       'font-lock-face 'magit-keyword)))
 
 (defun magit-revision--wash-message-hashes ()
   (when magit-revision-use-hash-sections
@@ -3438,12 +3466,10 @@ are highlighted."
 ;;; Hunk Region
 
 (defun magit-diff-hunk-region-beginning ()
-  (save-excursion (goto-char (region-beginning))
-                  (line-beginning-position)))
+  (magit--bol-position (region-beginning)))
 
 (defun magit-diff-hunk-region-end ()
-  (save-excursion (goto-char (region-end))
-                  (line-end-position)))
+  (magit--eol-position (region-end)))
 
 (defun magit-diff-update-hunk-region (section)
   "Highlight the hunk-internal region if any."

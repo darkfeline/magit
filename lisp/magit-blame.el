@@ -1,6 +1,6 @@
 ;;; magit-blame.el --- Blame support for Magit  -*- lexical-binding:t -*-
 
-;; Copyright (C) 2008-2024 The Magit Project Contributors
+;; Copyright (C) 2008-2025 The Magit Project Contributors
 
 ;; Author: Jonas Bernoulli <emacs.magit@jonas.bernoulli.dev>
 ;; Maintainer: Jonas Bernoulli <emacs.magit@jonas.bernoulli.dev>
@@ -157,15 +157,15 @@ and then turned on again when turning off the latter."
   :type '(choice (const :tag "No lighter" "") string))
 
 (defcustom magit-blame-goto-chunk-hook
-  '(magit-blame-maybe-update-revision-buffer
-    magit-blame-maybe-show-message)
+  (list #'magit-blame-maybe-update-revision-buffer
+        #'magit-blame-maybe-show-message)
   "Hook run after point entered another chunk."
   :package-version '(magit . "2.13.0")
   :group 'magit-blame
   :type 'hook
   :get #'magit-hook-custom-get
-  :options '(magit-blame-maybe-update-revision-buffer
-             magit-blame-maybe-show-message))
+  :options (list #'magit-blame-maybe-update-revision-buffer
+                 #'magit-blame-maybe-show-message))
 
 ;;; Faces
 
@@ -599,9 +599,7 @@ modes is toggled, then this mode also gets toggled automatically.
     (magit-blame--update-heading-overlay ov)))
 
 (defun magit-blame--make-highlight-overlay (chunk beg)
-  (let ((ov (make-overlay beg (save-excursion
-                                (goto-char beg)
-                                (1+ (line-end-position))))))
+  (let ((ov (make-overlay beg (1+ (magit--eol-position beg)))))
     (overlay-put ov 'magit-blame-chunk chunk)
     (overlay-put ov 'magit-blame-highlight t)
     (magit-blame--update-highlight-overlay ov)))
@@ -744,14 +742,13 @@ modes is toggled, then this mode also gets toggled automatically.
 
 (defun magit-blame-maybe-show-message ()
   (when (magit-blame--style-get 'show-message)
-    (let ((message-log-max 0))
-      (if-let ((msg (cdr (assoc "summary"
-                                (gethash (oref (magit-current-blame-chunk)
-                                               orig-rev)
-                                         magit-blame-cache)))))
-          (progn (set-text-properties 0 (length msg) nil msg)
-                 (message msg))
-        (message "Commit data not available yet.  Still blaming.")))))
+    (if-let ((msg (cdr (assoc "summary"
+                              (gethash (oref (magit-current-blame-chunk)
+                                             orig-rev)
+                                       magit-blame-cache)))))
+        (progn (set-text-properties 0 (length msg) nil msg)
+               (magit-msg "%S" msg))
+      (magit-msg "Commit data not available yet.  Still blaming."))))
 
 ;;; Commands
 

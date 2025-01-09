@@ -7,7 +7,7 @@
 #+texinfo_dir_category: Emacs
 #+texinfo_dir_title: Magit: (magit).
 #+texinfo_dir_desc: Using Git from Emacs with Magit.
-#+subtitle: for version 4.1.3
+#+subtitle: for version 4.2.0
 
 #+setupfile: .orgconfig
 
@@ -24,7 +24,7 @@ directly from within Emacs.  While many fine Git clients exist, only
 Magit and Git itself deserve to be called porcelains.
 
 #+texinfo: @noindent
-This manual is for Magit version 4.1.3.
+This manual is for Magit version 4.2.0.
 
 #+texinfo: @insertcopying
 :END:
@@ -2221,10 +2221,9 @@ By default the following functions are also members of that hook:
 
   Maybe insert a list or tree of untracked files.
 
-  Do so depending on the value of ~status.showUntrackedFiles~.  Note
-  that even if the value is ~all~, Magit still initially only shows
-  directories.  But the directory sections can then be expanded using
-  ~TAB~.
+  The option ~magit-status-show-untracked-files~ (which see), in
+  cooperation with the Git variable ~status.showUntrackedFiles~,
+  control whether and how that is done.
 
   If the first element of ~magit-buffer-diff-files~ is a directory, then
   limit the list to files below that.  The value of that variable can
@@ -6428,24 +6427,22 @@ Also see [[man:git-stash]]
 
   When using Git v2.38.0 or later, behave more intelligently:
 
-  First try ~git stash apply --index~, which tries to preserve
-  the index stored in the stash, if any.  This may fail because
-  applying the stash could result in conflicts and those have to
-  be stored in the index, making it impossible to also store the
-  stash's index there.
+  First try ~git stash apply --index~, which tries to preserve the index
+  stored in the stash, if any.  This may fail because applying the
+  stash could result in conflicts and those have to be stored in the
+  index, making it impossible to also store the stash's index there.
 
-  If the above failed, then try ~git stash apply~.  This fails
-  (with or without ~--index~) if there are any uncommitted
-  changes to files that are also modified in the stash.
+  First try ~git stash apply --index~, which tries to preserve the
+  index stored in the stash, if any.  This may fail because applying
+  the stash could result in conflicts and those have to be stored in
+  the index, making it impossible to also store the stash's index
+  there.
 
-  If both of the above failed, then apply using ~git apply~.
-  If there are no conflicting files, use ~--3way~.  If there are
-  conflicting files, then using ~--3way~ requires that those
-  files are staged first, which may be undesirable, so prompt
-  the user whether to use ~--3way~ or ~--reject~.
-
-  Customize ~magit-no-confirm~ if you want to always use ~--3way~,
-  without being prompted.
+  If ~git stash~ fails, then potentially fall back to using ~git apply~.
+  If the stash does not touch any unstaged files, then pass ~--3way~ to
+  that command.  Otherwise ask the user whether to use that argument
+  or ~--reject~.  Customize ~magit-no-confirm~ if you want to fall back
+  to using ~--3way~, without being prompted.
 
 - Key: z p (magit-stash-pop) ::
 
@@ -6458,24 +6455,16 @@ Also see [[man:git-stash]]
 
   When using Git v2.38.0 or later, behave more intelligently:
 
-  First try ~git stash pop --index~, which tries to preserve
-  the index stored in the stash, if any.  This may fail because
-  applying the stash could result in conflicts and those have to
-  be stored in the index, making it impossible to also store the
-  stash's index there.
+  First try ~git stash pop --index~, which tries to preserve the index
+  stored in the stash, if any.  This may fail because applying the
+  stash could result in conflicts and those have to be stored in the
+  index, making it impossible to also store the stash's index there.
 
-  If the above failed, then try ~git stash apply~.  This fails
-  (with or without ~--index~) if there are any uncommitted
-  changes to files that are also modified in the stash.
-
-  If both of the above failed, then apply using ~git apply~.
-  If there are no conflicting files, use ~--3way~.  If there are
-  conflicting files, then using ~--3way~ requires that those
-  files are staged first, which may be undesirable, so prompt
-  the user whether to use ~--3way~ or ~--reject~.
-
-  Customize ~magit-no-confirm~ if you want to always use ~--3way~,
-  without being prompted.
+  If ~git stash~ fails, then potentially fall back to using ~git apply~.
+  If the stash does not touch any unstaged files, then pass ~--3way~ to
+  that command.  Otherwise ask the user whether to use that argument
+  or ~--reject~.  Customize ~magit-no-confirm~ if you want to fall back
+  to using ~--3way~, without being prompted.
 
 - Key: z k (magit-stash-drop) ::
 

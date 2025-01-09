@@ -1,6 +1,6 @@
 ;;; magit-submodule.el --- Submodule support for Magit  -*- lexical-binding:t -*-
 
-;; Copyright (C) 2008-2024 The Magit Project Contributors
+;; Copyright (C) 2008-2025 The Magit Project Contributors
 
 ;; Author: Jonas Bernoulli <emacs.magit@jonas.bernoulli.dev>
 ;; Maintainer: Jonas Bernoulli <emacs.magit@jonas.bernoulli.dev>
@@ -29,11 +29,11 @@
 ;;; Options
 
 (defcustom magit-module-sections-hook
-  '(magit-insert-modules-overview
-    magit-insert-modules-unpulled-from-upstream
-    magit-insert-modules-unpulled-from-pushremote
-    magit-insert-modules-unpushed-to-upstream
-    magit-insert-modules-unpushed-to-pushremote)
+  (list #'magit-insert-modules-overview
+        #'magit-insert-modules-unpulled-from-upstream
+        #'magit-insert-modules-unpulled-from-pushremote
+        #'magit-insert-modules-unpushed-to-upstream
+        #'magit-insert-modules-unpushed-to-pushremote)
   "Hook run by `magit-insert-modules'.
 
 That function isn't part of `magit-status-sections-hook's default
@@ -618,8 +618,7 @@ These sections can be expanded to show the respective commits."
                     (msg (match-string 2 line)))
                 (magit-insert-section (module-commit rev t)
                   (insert (propertize rev 'font-lock-face 'magit-hash) " "
-                          (funcall magit-log-format-message-function rev msg)
-                          "\n")))))))
+                          (magit-log--wash-summary msg) "\n")))))))
       (magit-cancel-section 'if-empty)
       (insert ?\n))))
 

@@ -1,6 +1,6 @@
 ;;; magit-section.el --- Sections for read-only buffers  -*- lexical-binding:t; coding:utf-8 -*-
 
-;; Copyright (C) 2008-2024 The Magit Project Contributors
+;; Copyright (C) 2008-2025 The Magit Project Contributors
 
 ;; Author: Jonas Bernoulli <emacs.magit@jonas.bernoulli.dev>
 ;; Maintainer: Jonas Bernoulli <emacs.magit@jonas.bernoulli.dev>
@@ -8,10 +8,10 @@
 ;; Homepage: https://github.com/magit/magit
 ;; Keywords: tools
 
-;; Package-Version: 4.1.3
+;; Package-Version: 4.2.0
 ;; Package-Requires: (
 ;;     (emacs "27.1")
-;;     (compat "30.0.0.0")
+;;     (compat "30.0.1.0")
 ;;     (dash "2.19.1")
 ;;     (seq "2.24"))
 
@@ -99,6 +99,9 @@ similar defect.")
 ;; For `magit-section-get-relative-position'
 (declare-function magit-hunk-section-p "magit-diff" (section) t)
 
+(define-obsolete-variable-alias 'magit-keep-region-overlay
+  'magit-section-keep-region-overlay "Magit-Section 4.0.0")
+
 ;;; Hooks
 
 (defvar magit-section-movement-hook nil
@@ -106,8 +109,8 @@ similar defect.")
 That function in turn is used by all section movement commands.")
 
 (defvar magit-section-highlight-hook
-  '(magit-section-highlight
-    magit-section-highlight-selection)
+  (list #'magit-section-highlight
+        #'magit-section-highlight-selection)
   "Functions used to highlight the current section.
 Each function is run with the current section as only argument
 until one of them returns non-nil.")
@@ -120,7 +123,7 @@ unhighlighted without requiring a specialized unhighlighter,
 diff-related sections being the only exception.")
 
 (defvar magit-section-set-visibility-hook
-  '(magit-section-cached-visibility)
+  (list #'magit-section-cached-visibility)
   "Hook used to set the initial visibility of a section.
 Stop at the first function that returns non-nil.  The returned
 value should be `show', `hide' or nil.  If no function returns
@@ -233,9 +236,6 @@ Otherwise the value has to have one of these two forms:
                         (choice :tag "Use face kludge"
                                 (const :tag "Yes (potentially slow)" t)
                                 (const :tag "No (kinda ugly)" nil)))))
-
-(define-obsolete-variable-alias 'magit-keep-region-overlay
-  'magit-section-keep-region-overlay "Magit-Section 4.0.0")
 
 (defcustom magit-section-keep-region-overlay nil
   "Whether to keep the region overlay when there is a valid selection.
@@ -1620,9 +1620,7 @@ is explicitly expanded."
         (setq map (symbol-value map)))
       (put-text-property
        start
-       (save-excursion
-         (goto-char start)
-         (line-end-position))
+       (magit--eol-position start)
        'keymap (if map
                    (make-composed-keymap
                     (list map magit-section-heading-map))
@@ -1913,9 +1911,7 @@ When `magit-section-preserve-visibility' is nil, do nothing."
   (when (and magit-section-visibility-indicator
              (magit-section-content-p section))
     (let* ((beg (oref section start))
-           (eoh (save-excursion
-                  (goto-char beg)
-                  (line-end-position))))
+           (eoh (magit--eol-position beg)))
       (cond
        ((symbolp (car-safe magit-section-visibility-indicator))
         (let ((ov (magit--overlay-at beg 'magit-vis-indicator 'fringe)))
@@ -1983,9 +1979,7 @@ When `magit-section-preserve-visibility' is nil, do nothing."
              (= (oref section content)
                 (oref section end)))
     (dolist (o (overlays-in (oref section start)
-                            (save-excursion
-                              (goto-char (oref section start))
-                              (1+ (line-end-position)))))
+                            (1+ (magit--eol-position (oref section start)))))
       (when (overlay-get o 'magit-vis-indicator)
         (delete-overlay o)))))
 
@@ -2263,11 +2257,24 @@ Configuration'."
             (throw 'missing nil))))
       (not pos))))
 
-(defun magit--add-face-text-property (beg end face &optional append object)
-  "Like `add-face-text-property' but for `font-lock-face'."
+(defun magit--add-face-text-property ( beg end face
+                                       &optional append object adopt-face)
+  "Like `add-face-text-property' but for `font-lock-face'.
+If optional ADOPT-FACE, the replace `face' with `font-lock-face'
+first.  This is a hack, which is likely to be remove again."
   (when (stringp object)
     (unless beg (setq beg 0))
     (unless end (setq end (length object))))
+  (when adopt-face
+    (let ((beg beg)
+          (end end))
+      (while (< beg end)
+        (let ((pos (next-single-property-change beg 'face object end))
+              (val (get-text-property beg 'face object)))
+          ;; We simply assume font-lock-face is not also set.
+          (put-text-property beg pos 'font-lock-face val object)
+          (remove-list-of-text-properties beg pos '(face) object)
+          (setq beg pos)))))
   (while (< beg end)
     (let* ((pos (next-single-property-change beg 'font-lock-face object end))
            (val (get-text-property beg 'font-lock-face object))
@@ -2286,6 +2293,26 @@ Configuration'."
 (defun magit--put-face (beg end face string)
   (put-text-property beg end 'face face string)
   (put-text-property beg end 'font-lock-face face string))
+
+(defun magit--bolp (pos)
+  "Return t if POS is at the beginning of a line.
+This is like moving to POS and then calling `bolp'."
+  (save-excursion (goto-char pos) (bolp)))
+
+(defun magit--eolp (pos)
+  "Return t if POS is at the end of a line.
+This is like moving to POS and then calling `eolp'."
+  (save-excursion (goto-char pos) (bolp)))
+
+(defun magit--bol-position (pos)
+  "Return the position at the beginning of the line containing POS.
+This is like moving to POS and then calling `pos-bol'."
+  (save-excursion (goto-char pos) (pos-bol)))
+
+(defun magit--eol-position (pos)
+  "Return the position at the end of the line containing POS.
+This is like moving to POS and then calling `pos-eol'."
+  (save-excursion (goto-char pos) (pos-eol)))
 
 ;;; Imenu Support
 

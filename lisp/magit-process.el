@@ -1,6 +1,6 @@
 ;;; magit-process.el --- Process functionality  -*- lexical-binding:t -*-
 
-;; Copyright (C) 2008-2024 The Magit Project Contributors
+;; Copyright (C) 2008-2025 The Magit Project Contributors
 
 ;; Author: Jonas Bernoulli <emacs.magit@jonas.bernoulli.dev>
 ;; Maintainer: Jonas Bernoulli <emacs.magit@jonas.bernoulli.dev>
@@ -191,7 +191,7 @@ non-nil, then the password is read from the user instead."
   :package-version '(magit . "2.3.0")
   :group 'magit-process
   :type 'hook
-  :options '(magit-process-password-auth-source))
+  :options (list #'magit-process-password-auth-source))
 
 (defcustom magit-process-username-prompt-regexps
   '("^Username for '.*': ?$")
@@ -416,7 +416,7 @@ Process output goes into a new section in the buffer returned by
         (setq magit--refresh-cache nil))
       (magit-refresh))))
 
-(defvar magit-pre-call-git-hook nil)
+(defvar magit-pre-call-git-hook (list #'magit-maybe-save-repository-buffers))
 
 (defun magit-call-git (&rest args)
   "Call Git synchronously in a separate process.
@@ -539,11 +539,10 @@ current when this function was called (if it is a Magit buffer
 and still alive), as well as the respective Magit status buffer.
 
 See `magit-start-process' for more information."
-  (let ((message-log-max nil))
-    (message "Running %s %s" (magit-git-executable)
+  (magit-msg "Running %s %s" (magit-git-executable)
              (let ((m (string-join (flatten-tree args) " ")))
                (remove-list-of-text-properties 0 (length m) '(face) m)
-               m)))
+               m))
   (magit-start-git nil args))
 
 (defun magit-run-git-with-editor (&rest args)
@@ -579,7 +578,7 @@ See `magit-start-process' and `with-editor' for more information."
   (set-process-sentinel magit-this-process #'magit-sequencer-process-sentinel)
   magit-this-process)
 
-(defvar magit-pre-start-git-hook nil)
+(defvar magit-pre-start-git-hook (list #'magit-maybe-save-repository-buffers))
 
 (defun magit-start-git (input &rest args)
   "Start Git, prepare for refresh, and return the process object.
