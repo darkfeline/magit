@@ -1407,7 +1407,7 @@ Git."
 (defun magit-rev-fixup-target (rev)
   (let ((msg (magit-rev-format "%s" rev)))
     (save-match-data
-      (and (string-match "\\`\\(fixup\\|squash\\)! \\(.+\\)" msg)
+      (and (string-match "\\`\\(squash!\\|fixup!\\|amend!\\) \\(.+\\)" msg)
            (magit-rev-format
             "%h" (format "%s^{/^%s}" rev
                          (magit--ext-regexp-quote (match-string 2 msg))))))))
@@ -1509,7 +1509,13 @@ to, or to some other symbolic-ref that points to the same ref."
   (magit-section-case
     (branch (oref it value))
     (commit (or (magit--painted-branch-at-point)
-                (magit-name-branch (oref it value))))))
+                (magit-name-branch (oref it value))))
+    (pullreq (and (fboundp 'forge--pullreq-branch)
+                  (magit-branch-p
+                   (forge--pullreq-branch (oref it value)))))
+    ((unpulled unpushed)
+     (magit-ref-abbrev
+      (replace-regexp-in-string "\\.\\.\\.?" "" (oref it value))))))
 
 (defun magit--painted-branch-at-point (&optional type)
   (or (and (not (eq type 'remote))
