@@ -40,10 +40,10 @@ the name of the added remote is equal to that string and the
 variable isn't already set."
   :package-version '(magit . "2.4.0")
   :group 'magit-commands
-  :type '(choice (const  :tag "ask if unset" ask-if-unset)
-                 (const  :tag "always ask" ask)
-                 (string :tag "set if named")
-                 (const  :tag "don't set")))
+  :type '(choice (const  :tag "Ask if unset" ask-if-unset)
+                 (const  :tag "Always ask" ask)
+                 (string :tag "Set if named")
+                 (const  :tag "Don't set")))
 
 (defcustom magit-remote-direct-configure t
   "Whether the command `magit-remote' shows Git variables.
@@ -68,7 +68,7 @@ has to be used to view and change remote related variables."
   :man-page "git-remote"
   :value '("-f")
   ["Variables"
-   :if (lambda () (and magit-remote-direct-configure (transient-scope)))
+   :if (##and magit-remote-direct-configure (transient-scope))
    ("u" magit-remote.<remote>.url)
    ("U" magit-remote.<remote>.fetch)
    ("s" magit-remote.<remote>.pushurl)
@@ -83,8 +83,8 @@ has to be used to view and change remote related variables."
    [("C" "Configure..."         magit-remote-configure)
     ("p" "Prune stale branches" magit-remote-prune)
     ("P" "Prune stale refspecs" magit-remote-prune-refspecs)
-    ("b" magit-update-default-branch)
-    (7 "z" "Unshallow remote"   magit-remote-unshallow)]]
+    (7 "z" "Unshallow remote"   magit-remote-unshallow)]
+   [("d u" magit-update-default-branch)]]
   (interactive (list (magit-get-current-remote)))
   (transient-setup 'magit-remote nil nil :scope remote))
 
@@ -179,12 +179,13 @@ the now stale refspecs.  Other stale branches are not removed."
               (ours   (match-string 3 refspec)))
           (unless (if (string-match "\\*" theirs)
                       (let ((re (replace-match ".*" t t theirs)))
-                        (--some (string-match-p re it) remote-refs))
+                        (seq-some (##string-match-p re %) remote-refs))
                     (member theirs remote-refs))
             (push (cons refspec
                         (if (string-match "\\*" ours)
                             (let ((re (replace-match ".*" t t ours)))
-                              (--filter (string-match-p re it) tracking-refs))
+                              (seq-filter (##string-match-p re %)
+                                          tracking-refs))
                           (list (car (member ours tracking-refs)))))
                   stale)))))
     (if (not stale)
@@ -199,7 +200,7 @@ the now stale refspecs.  Other stale branches are not removed."
                  variable))
             (?r "[r]emove remote"
                 (magit-call-git "remote" "rm" remote))
-            (?a "or [a]abort"
+            (?a "[a]abort"
                 (user-error "Abort")))
         (if (if (length= stale 1)
                 (pcase-let ((`(,refspec . ,refs) (car stale)))
@@ -209,13 +210,11 @@ the now stale refspecs.  Other stale branches are not removed."
                     nil refs))
               (magit-confirm 'prune-stale-refspecs nil
                 (format "Prune %%d stale refspecs and %d branches"
-                        (length (mapcan (lambda (s) (copy-sequence (cdr s)))
-                                        stale)))
+                        (length (mapcan (##copy-sequence (cdr %)) stale)))
                 nil
                 (mapcar (pcase-lambda (`(,refspec . ,refs))
                           (concat refspec "\n"
-                                  (mapconcat (lambda (b) (concat "  " b))
-                                             refs "\n")))
+                                  (mapconcat (##concat "  " %) refs "\n")))
                         stale)))
             (pcase-dolist (`(,refspec . ,refs) stale)
               (magit-call-git "config" "--unset" variable
@@ -280,8 +279,8 @@ Delete the symbolic-ref \"refs/remotes/<remote>/HEAD\"."
                        newname)
                newname "master")))
       (cond
-       ((y-or-n-p (format "Default branch changed from `%s' to `%s' on %s.%s"
-                          oldname newname remote "  Do the same locally? "))
+       ((y-or-n-p (format "Default branch changed from `%s' to `%s' on %s.%s?"
+                          oldname newname remote "  Do the same locally"))
         (magit--set-default-branch newname oldname)
         (magit-refresh))
        ((user-error "Abort")))))))

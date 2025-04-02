@@ -20,7 +20,6 @@
 ;;; Code:
 
 (require 'cl-lib)
-(require 'dash)
 (require 'ert)
 (require 'tramp)
 (require 'tramp-sh)
@@ -426,9 +425,10 @@ Enter passphrase for key '/home/user/.ssh/id_rsa': "
 
 (defun magit-test-get-section (list file)
   (magit-status-setup-buffer default-directory)
-  (--first (equal (oref it value) file)
-           (oref (magit-get-section `(,list (status)))
-                 children)))
+  (magit-section-show-level-4-all)
+  (seq-find (##equal (oref % value) file)
+            (oref (magit-get-section `(,list (status)))
+                  children)))
 
 (ert-deftest magit-status:file-sections ()
   (magit-with-test-repository

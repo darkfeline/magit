@@ -63,7 +63,7 @@ To change the value in an existing buffer use the command
 `magit-refs-set-show-commit-count'."
   :package-version '(magit . "2.1.0")
   :group 'magit-refs
-  :safe (lambda (val) (memq val '(all branch nil)))
+  :safe (##memq % '(all branch nil))
   :type '(choice (const :tag "For branches and tags" all)
                  (const :tag "For branches only"     branch)
                  (const :tag "Never"                 nil)))
@@ -105,7 +105,7 @@ in the heading preceding the list of its branches."
 To distinguish branch descriptions from the commit summary of the tip,
 which is shown when there is no description or this option is disabled,
 descriptions use the bold face."
-  :package-version '(magit . "4.2.1")
+  :package-version '(magit . "4.3.0")
   :group 'magit-refs
   :type 'boolean)
 
@@ -134,7 +134,7 @@ AUTHOR-WIDTH has to be an integer.  When the name of the author
   :package-version '(magit . "2.9.0")
   :group 'magit-refs
   :group 'magit-margin
-  :safe (lambda (val) (memq val '(all branch nil)))
+  :safe (##memq % '(all branch nil))
   :type magit-log-margin--custom-type
   :initialize #'magit-custom-initialize-reset
   :set-after '(magit-log-margin)
@@ -150,7 +150,7 @@ tags."
   :group 'magit-margin
   :type 'boolean)
 
-(defcustom magit-refs-primary-column-width (cons 16 32)
+(defcustom magit-refs-primary-column-width '(16 . 32)
   "Width of the focus column in `magit-refs-mode' buffers.
 
 The primary column is the column that contains the name of the
@@ -247,7 +247,7 @@ the outcome.
   and lists of cherry commits relative to the reference at point
   instead of relative to the current buffer or `HEAD'.
 
-  Instead of adding this symbol, consider pressing \"C-u y o RET\".
+  Instead of adding this symbol, consider pressing \\`C-u y o RET'.
 
 `create-branch'
 
@@ -333,8 +333,7 @@ Type \\[magit-reset] to reset `HEAD' to the commit at point.
 (transient-define-prefix magit-show-refs (&optional transient)
   "List and compare references in a dedicated buffer."
   :man-page "git-branch"
-  :value (lambda ()
-           (magit-show-refs-arguments magit-prefix-use-buffer-arguments))
+  :value (##magit-show-refs-arguments magit-prefix-use-buffer-arguments)
   ["Arguments"
    (magit-for-each-ref:--contains)
    ("-M" "Merged"               "--merged=" magit-transient-read-revision)

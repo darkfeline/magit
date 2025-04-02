@@ -114,7 +114,7 @@ VERSION ?= $(shell \
   git describe --tags --abbrev=0 --always | cut -c2-)
 REVDESC := $(shell test -e $(TOP).git && git describe --tags)
 
-EMACS_VERSION = 26.1
+EMACS_VERSION = 27.1
 
 EMACSOLD := $(shell $(BATCH) --eval \
   "(and (version< emacs-version \"$(EMACS_VERSION)\") (princ \"true\"))")
@@ -145,11 +145,11 @@ ifeq "$(COMPAT_DIR)" ""
   COMPAT_DIR = $(TOP)../compat
 endif
 
-DASH_DIR ?= $(shell \
-  find -L $(ELPA_DIR) -maxdepth 1 -regex '.*/dash-[.0-9]*' 2> /dev/null | \
+LLAMA_DIR ?= $(shell \
+  find -L $(ELPA_DIR) -maxdepth 1 -regex '.*/llama-[.0-9]*' 2> /dev/null | \
   sort | tail -n 1)
-ifeq "$(DASH_DIR)" ""
-  DASH_DIR = $(TOP)../dash
+ifeq "$(LLAMA_DIR)" ""
+  LLAMA_DIR = $(TOP)../llama
 endif
 
 SEQ_DIR ?= $(shell \
@@ -184,14 +184,14 @@ endif
 
 LOAD_PATH = -L $(TOP)lisp
 
-# When making changes here, then don't forget to adjust "Makefile",
-# ".github/workflows/test.yml", ".github/ISSUE_TEMPLATE/bug_report.md",
-# `magit-emacs-Q-command' and the "Installing from the Git Repository"
-# info node accordingly.  Also don't forget to "rgrep \b<pkg>\b".
+# When making changes here, then don't forget to adjust "default.mk"
+# ".github/ISSUE_TEMPLATE/bug_report.md", `magit-emacs-Q-command' and
+# the "Installing from the Git Repository" info node accordingly.
+# Also don't forget to "rgrep \b<pkg>\b".
 
 ifdef CYGPATH
   LOAD_PATH += -L $(shell cygpath --mixed $(COMPAT_DIR))
-  LOAD_PATH += -L $(shell cygpath --mixed $(DASH_DIR))
+  LOAD_PATH += -L $(shell cygpath --mixed $(LLAMA_DIR))
   LOAD_PATH += -L $(shell cygpath --mixed $(SEQ_DIR))
   LOAD_PATH += -L $(shell cygpath --mixed $(TRANSIENT_DIR))
   LOAD_PATH += -L $(shell cygpath --mixed $(WITH_EDITOR_DIR))
@@ -200,7 +200,7 @@ ifdef CYGPATH
   endif
 else
   LOAD_PATH += -L $(COMPAT_DIR)
-  LOAD_PATH += -L $(DASH_DIR)
+  LOAD_PATH += -L $(LLAMA_DIR)
   LOAD_PATH += -L $(SEQ_DIR)
   LOAD_PATH += -L $(TRANSIENT_DIR)
   LOAD_PATH += -L $(WITH_EDITOR_DIR)
@@ -220,10 +220,9 @@ endif
 # This isn't used by make, but is needed for the Compile ci workflow.
 
 DEPS  = compat
-DEPS += dash
+DEPS += llama
 DEPS += seq
 DEPS += transient/lisp
-DEPS += vterm
 DEPS += with-editor/lisp
 
 ## Publish ###########################################################

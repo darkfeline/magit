@@ -181,7 +181,7 @@
 (put 'git-rebase-kill-line    :advertised-binding (kbd "k"))
 
 (easy-menu-define git-rebase-mode-menu git-rebase-mode-map
-  "Git-Rebase mode menu"
+  "Git-Rebase mode menu."
   '("Rebase"
     ["Pick" git-rebase-pick t]
     ["Reword" git-rebase-reword t]
@@ -588,8 +588,7 @@ commit.  For an upper-case -C, the message will be used as is."
           (insert
            (format "merge %s %s %s\n"
                    (replace-regexp-in-string
-                    "-[cC]" (lambda (c)
-                              (if (equal c "-c") "-C" "-c"))
+                    "-[cC]" (##if (equal % "-c") "-C" "-c")
                     action-options t t)
                    target
                    trailer)))
@@ -787,10 +786,10 @@ running \"man git-rebase\" at the command line) for details."
      (1 'git-rebase-label t))))
 
 (defun git-rebase-mode-show-keybindings ()
-  "Modify the \"Commands:\" section of the comment Git generates
-at the bottom of the file so that in place of the one-letter
-abbreviation for the command, it shows the command's keybinding.
-By default, this is the same except for the \"pick\" command."
+  "Modify the \"Commands:\" section of the comment Git generates.
+Modify that section to replace Git's one-letter command abbreviation,
+with the key bindings used in Magit.  By default, these are the same,
+except for the \"pick\" command."
   (let ((inhibit-read-only t))
     (save-excursion
       (goto-char (point-min))

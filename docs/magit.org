@@ -7,7 +7,7 @@
 #+texinfo_dir_category: Emacs
 #+texinfo_dir_title: Magit: (magit).
 #+texinfo_dir_desc: Using Git from Emacs with Magit.
-#+subtitle: for version 4.2.0
+#+subtitle: for version 4.3.2
 
 #+setupfile: .orgconfig
 
@@ -24,7 +24,7 @@ directly from within Emacs.  While many fine Git clients exist, only
 Magit and Git itself deserve to be called porcelains.
 
 #+texinfo: @noindent
-This manual is for Magit version 4.2.0.
+This manual is for Magit version 4.3.2.
 
 #+texinfo: @insertcopying
 :END:
@@ -153,7 +153,8 @@ Now see [[*Post-Installation Tasks]].
 
 ** Installing from the Git Repository
 
-Magit depends on the ~compat~, ~dash~, ~transient~ and ~with-editor~ libraries
+Magit depends on the ~compat~, ~llama~, ~seq~ (the built-in version is
+enough when using Emacs >= 29.1), ~transient~ and ~with-editor~ libraries
 which are available from Melpa and Melpa-Stable.  Install them using
 ~M-x package-install RET <package> RET~.  Of course you may also install
 them manually from their repository.
@@ -171,17 +172,19 @@ Then compile the libraries and generate the info manuals:
   $ make
 #+end_src
 
-If you haven't installed ~compat~, ~dash~, ~transient~ and ~with-editor~ from
-Melpa or at ~/path/to/magit/../<package>~, then you have to tell ~make~
-where to find them.  To do so create the file ~/path/to/magit/config.mk~
+If you haven't installed ~compat~, ~llama~, ~seq~ (for Emacs < 29.1),
+~transient~ and ~with-editor~ from Melpa, or at
+~/path/to/magit/../<package>~, then you have to tell ~make~ where to
+find them.  To do so create the file ~/path/to/magit/config.mk~
 with the following content before running ~make~:
 
 #+begin_src makefile
   LOAD_PATH  = -L ~/.emacs.d/site-lisp/magit/lisp
-  LOAD_PATH += -L ~/.emacs.d/site-lisp/dash
+  LOAD_PATH += -L ~/.emacs.d/site-lisp/compat
+  LOAD_PATH += -L ~/.emacs.d/site-lisp/llama
+  LOAD_PATH += -L ~/.emacs.d/site-lisp/seq
   LOAD_PATH += -L ~/.emacs.d/site-lisp/transient/lisp
   LOAD_PATH += -L ~/.emacs.d/site-lisp/with-editor/lisp
-  LOAD_PATH += -L ~/.emacs.d/site-lisp/compat
 #+end_src
 
 Finally add this to your init file:
@@ -192,15 +195,16 @@ Finally add this to your init file:
 
   (with-eval-after-load 'info
     (info-initialize)
-    (add-to-list 'Info-directory-list
-                 "~/.emacs.d/site-lisp/magit/Documentation/"))
+    (add-to-list 'Info-directory-list "~/.emacs.d/site-lisp/magit/docs/"))
 #+end_src
 
 Of course if you installed the dependencies manually as well, then
 you have to tell Emacs about them too, by prefixing the above with:
 
 #+begin_src emacs-lisp
-  (add-to-list 'load-path "~/.emacs.d/site-lisp/dash")
+  (add-to-list 'load-path "~/.emacs.d/site-lisp/compat")
+  (add-to-list 'load-path "~/.emacs.d/site-lisp/llama")
+  (add-to-list 'load-path "~/.emacs.d/site-lisp/seq")
   (add-to-list 'load-path "~/.emacs.d/site-lisp/transient/lisp")
   (add-to-list 'load-path "~/.emacs.d/site-lisp/with-editor")
 #+end_src
@@ -2179,11 +2183,15 @@ hooks and how to customize them.
 
 - User Option: magit-status-sections-hook ::
 
-  Hook run to insert sections into a status buffer.
+  This hook is run to insert sections into a status buffer.
 
-The first function on that hook by default is
-~magit-insert-status-headers~; it is described in the next section.
-By default the following functions are also members of that hook:
+  The functions described in this section, and the functions
+  ~magit-insert-status-headers~ and ~magit-insert-untracked-files~,
+  which are described in subsequent sections, are members of this
+  hook.
+
+  Some additional functions that can be added to this hook, but are by
+  default added to another hooks, are listed in [[*References Buffer]].
 
 - Function: magit-insert-merge-log ::
 
@@ -2216,18 +2224,6 @@ By default the following functions are also members of that hook:
 - Function: magit-insert-bisect-log ::
 
   While bisecting, insert section logging bisect progress.
-
-- Function: magit-insert-untracked-files ::
-
-  Maybe insert a list or tree of untracked files.
-
-  The option ~magit-status-show-untracked-files~ (which see), in
-  cooperation with the Git variable ~status.showUntrackedFiles~,
-  control whether and how that is done.
-
-  If the first element of ~magit-buffer-diff-files~ is a directory, then
-  limit the list to files below that.  The value of that variable can
-  be set using ~D -- DIRECTORY RET g~.
 
 - Function: magit-insert-unstaged-changes ::
 
@@ -2264,36 +2260,81 @@ By default the following functions are also members of that hook:
   Insert section showing commits that haven't been pushed to the
   push-remote yet.
 
-The following functions can also be added to the above hook:
+*** Status File List Sections
+
+These functions honor the buffer's file filter, which can be set using
+~D - -~.
+
+- Function: magit-insert-untracked-files ::
+
+  This function may insert a list of untracked files.  Whether it
+  actually does so, depends on the option described next.
+
+- User Option: magit-status-show-untracked-files ::
+
+  This option controls whether the above function inserts a list of
+  untracked files in the status buffer.
+
+  - If ~nil~, do not list any untracked files.
+  - If ~t~, list untracked files, but if a directory does not contain any
+    untracked files, then only list that directory, not the contained
+    untracked files.
+  - If ~all~, then list each individual untracked files.  This is can be
+    very slow and is discouraged.
+
+  The corresponding values for the Git variable are "no", "normal"
+  and "all".
+
+  To disable listing untracked files in a specific repository only,
+  add the following to ~.dir-locals.el~:
+
+  #+begin_src emacs-lisp
+    ((magit-status-mode
+     (magit-status-show-untracked-files . "no")))
+  #+end_src
+
+  Alternatively (and mostly for historic reasons), it is possible to
+  use ~git config~ to set the repository-local value:
+
+  #+begin_src shell-script
+    git config set --local status.showUntrackedFiles no
+  #+end_src
+
+  This does *not* override the (if any) local value of this Lisp variable,
+  but it does override its global value.
+
+  See the last section in the git-status(1) manpage, to speed up the part
+  of the work Git is responsible for.  Turning that list into sections is
+  also not free, so Magit only lists ~magit-status-file-list-limit~ files.
+
+- User Option: magit-status-file-list-limit ::
+
+  This option controls many files are listed at most in each section
+  that lists files in the status buffer.  For performance reasons, it
+  is recommended that you do not increase this limit.
+
+While the above function is a member of ~magit-status-section-hook~ by
+default, the following functions have to be explicitly added by the
+user.  Because that negatively affects performance, it is recommended
+that you don't do that.
 
 - Function: magit-insert-tracked-files ::
 
-  Insert a tree of tracked files.
+  Insert a list of tracked files.
 
 - Function: magit-insert-ignored-files ::
 
-  Insert a tree of ignored files.
-  Its possible to limit the logs in the current buffer to a certain
-  directory using ~D = f <DIRECTORY> RET g~.  If you do that, then that
-  that also affects this command.
-
-  The log filter can be used to limit to multiple files.  In that case
-  this function only respects the first of the files and only if it is
-  a directory.
+  Insert a list of ignored files.
 
 - Function: magit-insert-skip-worktree-files ::
 
-  Insert a tree of skip-worktree files.
-  If the first element of ~magit-buffer-diff-files~ is a
-  directory, then limit the list to files below that.  The value
-  of that variable can be set using ~D -- DIRECTORY RET g~.
+  Insert a list of skip-worktree files.
 
 - Function: magit-insert-assumed-unchanged-files ::
 
-  Insert a tree of files that are assumed to be unchanged.
-  If the first element of ~magit-buffer-diff-files~ is a
-  directory, then limit the list to files below that.  The value
-  of that variable can be set using ~D -- DIRECTORY RET g~.
+  Insert a list of files that are assumed to be unchanged.
+
+*** Status Log Sections
 
 - Function: magit-insert-unpulled-or-recent-commits ::
 
@@ -2329,9 +2370,6 @@ The following functions can also be added to the above hook:
   which has not been applied to upstream yet (i.e., a commit with
   a patch-id not shared with any upstream commit) with "+" and
   all others with "-".
-
-See [[*References Buffer]] for some more section inserters, which could be
-used here.
 
 *** Status Header Sections
 
@@ -3437,6 +3475,15 @@ that they are available here too.
   takes no argument and returns such a list.  These arguments are
   allowed here: ~--stat-width~, ~--stat-name-width~,
   ~--stat-graph-width~ and ~--compact-summary~.  Also see [[man:git-diff]]
+
+- User Option: magit-format-file-function ::
+
+  This function is used to format lines representing a file.  It is
+  used for file headings in diffs, in diffstats and for lists of files
+  (such as the untracked files).  Depending on the caller, it receives
+  either three or five arguments; the signature has to be ~(kind file
+  face &optional status orig)~.  KIND is one of ~diff~, ~module~, ~stat~ and
+  ~list~.
 
 *** Revision Buffer
 
@@ -4693,7 +4740,7 @@ message, or that you immediately edit an existing message.
 
 The new commits are called "squash" and "fixup" commits.  The
 difference is that when a "squash" commit is squashed into its
-targeted commit, the user gets a change to modify the message to be
+targeted commit, the user gets a chance to modify the message to be
 used for the final commit; while for "fixup" commits the existing
 message of the targeted commit is used as-is and the message of the
 "fixup" commit is discarded.
@@ -5721,7 +5768,7 @@ following suffix commands.
   Finally, if ~magit-branch-pull-request~ was used to create the merged
   branch, then the respective remote branch is also removed.
 
-- Key: m i (magit-merge-into) ::
+- Key: m d (magit-merge-dissolve) ::
 
   This command merges the current branch into another local branch and
   then removes the former.  The latter becomes the new current branch.
@@ -5966,6 +6013,11 @@ is not enabled in the transient.
 
   This command combines squash and fixup commits with their intended
   targets.
+
+  By default only commits that are not reachable from the upstream
+  branch are potentially squashed into.  If no upstream is configured
+  or with a prefix argument, the user is prompted for the first commit
+  to potentially squash into.
 
 - Key: r m (magit-rebase-edit-commit) ::
 
@@ -6569,11 +6621,6 @@ Also see [[man:git-stash]]
   or with a prefix argument ~git stash apply --index~.
 
   When using Git v2.38.0 or later, behave more intelligently:
-
-  First try ~git stash apply --index~, which tries to preserve the index
-  stored in the stash, if any.  This may fail because applying the
-  stash could result in conflicts and those have to be stored in the
-  index, making it impossible to also store the stash's index there.
 
   First try ~git stash apply --index~, which tries to preserve the
   index stored in the stash, if any.  This may fail because applying

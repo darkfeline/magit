@@ -1,5 +1,78 @@
 # -*- mode: org -*-
-* v4.2.1    UNRELEASED
+* v4.3.2    2025-04-01
+
+- Removed legacy options ~magit-wip-*-mode-lighter~.  225ea6fd00
+
+- ~magit-log-current~ now falls back to displaying the log for ~HEAD~ if
+  no branch is checked out, and the now redundant ~magit-log-head~ is
+  no longer displayed in the ~magit-log~ menu by default.  c8b1e12bd5
+
+- Renamed ~magit-merge-into~ to ~magit-merge-dissolve~ and changed the
+  key binding in the ~magit-merge~ menu from ~i~ to ~d~.  The descripton
+  in that menu already was "dissolve".  Do this to make it more
+  obvious that this command deletes the source branch after it has
+  been merged into the target branch.  #4386
+
+- Added new option ~magit-process-apply-ansi-colors~ (but discourage
+  its use).  #5348
+
+- Support for Ido has been moved out into a new package ~magit-ido~.
+  6aec967ee4
+
+Bugfixes:
+
+- ~magit-after-save-refresh-buffers~ did not respect
+  ~magit-inhibit-refresh~.  c0a8e694b9
+
+- When washing of a section was delayed and it ends in an empty line,
+  that line was not always made part of the section.  f6f25e6566
+
+- In some cases section specific key bindings were not made available
+  as intended.  6ce1ece580, 3f79700f1b
+
+- In some cases ~magit-toggle-buffer-lock~ has to uniquify buffer names
+  but failed to do so.  #5330
+
+- After applying a hunk, the buffer was refreshed twice.  #5343
+
+- The diff shown by ~magit-diff-paths~ was not washed. #5093
+
+Also contains more code and documentation cleanups and improvements.
+
+* v4.3.1    2025-03-02
+
+- Added new option ~magit-format-file-function,~ and two functions to
+  optionally prefix file names with icons, with the help of either
+  ~all-the-icons~ or ~nerd-icons~.  #5308
+
+- Added new commands ~magit-previous-reference~ and ~magit-next-reference~,
+  with entry point ~C-c C-r~.  Enable ~repeat-mode~ to keep navigating with
+  ~p~ and ~n~.  #5310
+
+Bugfixes:
+
+- ~magit-commit-revise~ failed if no arguments were used.  #5306
+
+- Some arguments were missing from diff menus when invoked from
+  the status buffer.  #5309
+
+- In some menus the bindings for ~--signoff~ conflicted with those for
+  other arguments.  #5312
+
+- Fixed unlikely issue in ~magit-git-mergetool~.  66e3ddffe4
+
+- Unknown Git trailers resulted in a display error while writing
+  commit messages.  8c27c910ca
+
+- When the word at point matched the name of a branch, that was
+  unconditionally treated as the commit-at-point.  This should only be
+  done when that word is shown using an appropriate face.  2b3f2cb9ad
+
+- Fixed bug in ~magit-section-cycle-diffs~.  #5319
+
+- ~magit-stage-untracked~ was a bit fragile.  #5325
+
+* v4.3.0    2025-02-04
 
 - Added new option ~magit-refs-show-branch-descriptions~.  42ed6c1966
 
@@ -7,21 +80,51 @@
   offered some fallback methods.  The presentation of those has been
   improved.  #5253 a08b4dd513
 
-- [IN PROGRESS] Improve listing of untracked files.
-
 - Added new hook options ~magit-revision-wash-message-hook~ and
-  ~magit-log-wash-summary-hook~, and populate them with new and existing
-  highlighting functions, making easier to remove default highlighting
-  and to add custom highlighting.  This also increases consistency
-  between how commit summaries are shown in logs and when displaying
-  complete commit messages.  f54fce0ecc..b86fe009e2
+  ~magit-log-wash-summary-hook~, and populate them with new and
+  existing highlighting functions, making it easier to remove default
+  highlighting and to add custom highlighting.  This also increases
+  consistency between how commit summaries are shown in logs and when
+  displaying complete commit messages.  f54fce0ecc..b86fe009e2
 
 - ~amend!~ markers are now highlighted like ~fixup!~ and ~squash!~ markers.
   #5261
 
-- Added new commands ~magit-commit-alter~ and ~magit-commit-revise~.  #5261
+- ~magit-commit-create~ no longer amends to HEAD when called with a
+  prefix argument.  The ~magit-commit~ menu offers four amend commands.
+  That should be good enough.  5e60aa72e5
 
-- Improved commit menu, documentation and implementation details.  #5261
+- ~magit-commit~ no longer features the obscure ~magit-commit-reshelve~ by
+  default, but it can quickly be reinstated, using the level mechanism.
+  20eb323b47
+
+- Added new commands ~magit-commit-alter~ and ~magit-commit-revise~,
+  completing the already extensive set of "fixup" commands.  #5261
+
+- Improved commit menu, documentation and implementation details.
+  #5261
+
+- The branch at point is detected in more contexts now, i.e., when
+  there is not actually a branch at point, but one can unambiguously
+  be derived from the thing at point.  4876f1921e
+
+- Reworked ~magit-process-password-prompt-regexps~ to be more permissive
+  and better structured.  Hopefully that means we have to extend it
+  less frequently going forward, when users run into new prompts.
+  #5288
+
+- Speed up listing untracked files in the status buffer, simplify how
+  the list is configured, and give up on optionally using a tree.
+  #5284
+
+- Argument ~--signoff~ is now available in all menus that create commits.
+  However, it is no longer shown in any menu by default.  See the end
+  of [[https://magit.vc/manual/transient/Enabling-and-Disabling-Suffixes.html][Enabling and Disabling Suffixes]] to learn how to enable it in all
+  menus at once in a single action.  #5297
+
+- Began using the ~##~ macro from the ~llama~ package.  0a64982100
+
+- Stopped depending on the ~dash~ package.  e40e8f1994
 
 Bug fixes:
 
@@ -44,6 +147,21 @@ Bug fixes:
 
 - The confirmation prompt of ~magit-worktree-delete~ failed to name the
   affected worktree.  #5286
+
+- The wrong suffix color was used for ~magit-commit-absorb~ and
+  ~magit-commit-autofixup~.  bfadd41079
+
+- ~magit-stash-index~ did not use ~magit-stash-read-message-function~.
+  #5295
+
+- Fixed an error that occurred when creating ~magit-hunk-section-map~
+  and the user has disabled ~smerge-command-prefix~.  The same bug
+  exists in Emacs since 29.1, so this will only help users stuck
+  on Emacs 28.  #5300
+
+- When the value of a diff or log menu was being initialized from the
+  arguments in the current buffer and the diff/log was already limited
+  to a set of files, then all other arguments were discarded.  #5304
 
 * v4.2.0    2025-01-01
 

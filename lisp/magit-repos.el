@@ -56,28 +56,28 @@ This option controls which repositories are being listed by
   :link '(info-link "(magit)Repository List")
   :group 'magit-modes)
 
-(defcustom magit-repolist-mode-hook '(hl-line-mode)
+(defcustom magit-repolist-mode-hook (list #'hl-line-mode)
   "Hook run after entering Magit-Repolist mode."
   :package-version '(magit . "2.9.0")
   :group 'magit-repolist
   :type 'hook
   :get #'magit-hook-custom-get
-  :options '(hl-line-mode))
+  :options (list #'hl-line-mode))
 
 (defcustom magit-repolist-columns
-  '(("Name"    25 magit-repolist-column-ident
+  `(("Name"    25 ,#'magit-repolist-column-ident
      ())
-    ("Version" 25 magit-repolist-column-version
+    ("Version" 25 ,#'magit-repolist-column-version
      ((:sort magit-repolist-version<)))
-    ("B<U"      3 magit-repolist-column-unpulled-from-upstream
+    ("B<U"      3 ,#'magit-repolist-column-unpulled-from-upstream
      (;; (:help-echo "Upstream changes not in branch")
       (:right-align t)
       (:sort <)))
-    ("B>U"      3 magit-repolist-column-unpushed-to-upstream
+    ("B>U"      3 ,#'magit-repolist-column-unpushed-to-upstream
      (;; (:help-echo "Local changes not in upstream")
       (:right-align t)
       (:sort <)))
-    ("Path"    99 magit-repolist-column-path
+    ("Path"    99 ,#'magit-repolist-column-path
      ()))
   "List of columns displayed by `magit-list-repositories'.
 
@@ -118,9 +118,9 @@ than 9."
                                        (sexp   :tag "Value"))))))
 
 (defcustom magit-repolist-column-flag-alist
-  '((magit-untracked-files . "N")
-    (magit-unstaged-files . "U")
-    (magit-staged-files . "S"))
+  `((,#'magit-untracked-files . "N")
+    (,#'magit-unstaged-files . "U")
+    (,#'magit-staged-files . "S"))
   "Association list of predicates and flags for `magit-repolist-column-flag'.
 
 Each element is of the form (FUNCTION . FLAG).  Each FUNCTION is
@@ -180,14 +180,14 @@ repositories are displayed."
   "Fetch all marked or listed repositories."
   (interactive (list (magit-repolist--get-repos ?*)))
   (run-hooks 'magit-credential-hook)
-  (magit-repolist--mapc (apply-partially #'magit-run-git "remote" "update")
+  (magit-repolist--mapc (##magit-run-git "remote" "update")
                         repos "Fetching in %s..."))
 
 (defun magit-repolist-find-file-other-frame (repos file)
   "Find a file in all marked or listed repositories."
   (interactive (list (magit-repolist--get-repos ?*)
                      (read-string "Find file in repositories: ")))
-  (magit-repolist--mapc (apply-partially #'find-file-other-frame file) repos))
+  (magit-repolist--mapc (##find-file-other-frame file) repos))
 
 (defun magit-repolist--ensure-padding ()
   "Set `tabulated-list-padding' to 2, unless that is already non-zero."
@@ -242,17 +242,16 @@ If it contains \"%s\" then the directory is substituted for that."
   (let ((base default-directory)
         (len (length repos))
         (i 0))
-    (mapc (lambda (repo)
-            (let ((default-directory
-                   (file-name-as-directory (expand-file-name repo base))))
-              (if msg
-                  (let ((msg (concat (format "(%s/%s) " (cl-incf i) len)
-                                     (format msg default-directory))))
-                    (message msg)
-                    (funcall fn)
-                    (message (concat msg "done")))
-                (funcall fn))))
-          repos)))
+    (dolist (repo repos)
+      (let ((default-directory
+             (file-name-as-directory (expand-file-name repo base))))
+        (if msg
+            (let ((msg (concat (format "(%s/%s) " (cl-incf i) len)
+                               (format msg default-directory))))
+              (message msg)
+              (funcall fn)
+              (message (concat msg "done")))
+          (funcall fn))))))
 
 ;;;; Mode
 
@@ -327,9 +326,9 @@ If it contains \"%s\" then the directory is substituted for that."
                                          ""))
                                    magit-repolist-columns)))))
                 (magit-list-repos-uniquify
-                 (--map (cons (file-name-nondirectory (directory-file-name it))
-                              it)
-                        (magit-list-repos)))))
+                 (mapcar (##cons (file-name-nondirectory (directory-file-name %))
+                                 %)
+                         (magit-list-repos)))))
   (message "Listing repositories...")
   (tabulated-list-init-header)
   (tabulated-list-print t)
@@ -510,10 +509,10 @@ instead."
   (cond ((file-readable-p (expand-file-name ".git" directory))
          (list (file-name-as-directory directory)))
         ((and (> depth 0) (file-accessible-directory-p directory))
-         (--mapcat (and (file-directory-p it)
-                        (magit-list-repos-1 it (1- depth)))
-                   (directory-files directory t
-                                    directory-files-no-dot-files-regexp t)))))
+         (mapcan (##and (file-directory-p %)
+                        (magit-list-repos-1 % (1- depth)))
+                 (directory-files directory t
+                                  directory-files-no-dot-files-regexp t)))))
 
 (defun magit-list-repos-uniquify (alist)
   (let (result (dict (make-hash-table :test #'equal)))
@@ -524,22 +523,24 @@ instead."
        (if (length= value 1)
            (push (cons key (car value)) result)
          (setq result
-               (append result
-                       (magit-list-repos-uniquify
-                        (--map (cons (concat
-                                      key "\\"
-                                      (file-name-nondirectory
-                                       (directory-file-name
-                                        (substring it 0 (- (1+ (length key)))))))
-                                     it)
-                               value))))))
+               (append
+                result
+                (magit-list-repos-uniquify
+                 (mapcar (lambda (v)
+                           (cons (concat
+                                  key "\\"
+                                  (file-name-nondirectory
+                                   (directory-file-name
+                                    (substring v 0 (- (1+ (length key)))))))
+                                 v))
+                         value))))))
      dict)
     result))
 
 (defun magit-repos-alist ()
   (magit-list-repos-uniquify
-   (--map (cons (file-name-nondirectory (directory-file-name it)) it)
-          (magit-list-repos))))
+   (mapcar (##cons (file-name-nondirectory (directory-file-name %)) %)
+           (magit-list-repos))))
 
 ;;; _
 (provide 'magit-repos)

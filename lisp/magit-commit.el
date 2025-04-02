@@ -128,8 +128,8 @@ Also see https://github.com/magit/magit/issues/4132."
    ("-R" "Claim authorship and reset author date" "--reset-author")
    (magit:--author :description "Override the author")
    (magit-commit:--date :level 7)
-   ("-s" "Add Signed-off-by line"                 ("-s" "--signoff"))
    (magit:--gpg-sign :level 5)
+   (magit:--signoff)
    (magit-commit:--reuse-message)]
   [["Create"
     ("c" "Commit"         magit-commit-create)]
@@ -148,7 +148,10 @@ Also see https://github.com/magit/magit/issues/4132."
     ("W" "Revise"         magit-commit-revise)]
    ["Edit and rebase"
     ("F" "Instant fixup"  magit-commit-instant-fixup)
-    ("S" "Instant squash" magit-commit-instant-squash)]
+    ("S" "Instant squash" magit-commit-instant-squash)
+    ""
+    ""
+    ("R" "Reword past"    magit-rebase-reword-commit :level 0)]
    ["Spread across commits"
     ("x" "Modified files"  magit-commit-autofixup :level 6)
     ("X" "Updated modules" magit-commit-absorb-modules :level 6)]]
@@ -204,7 +207,7 @@ Also see https://github.com/magit/magit/issues/4132."
   "Amend staged changes to the last commit, without editing its message.
 
 With a prefix argument do not update the committer date; without an
-argument update it. The option `magit-commit-extend-override-date'
+argument update it.  The option `magit-commit-extend-override-date'
 can be used to inverse the meaning of the prefix argument.  Called
 non-interactively, the optional OVERRIDE-DATE argument controls this
 behavior, and the option is of no relevance."
@@ -232,7 +235,7 @@ behavior, and the option is of no relevance."
   "Reword the message of the last commit, without amending its tree.
 
 With a prefix argument do not update the committer date; without an
-argument update it. The option `magit-commit-reword-override-date'
+argument update it.  The option `magit-commit-reword-override-date'
 can be used to inverse the meaning of the prefix argument.  Called
 non-interactively, the optional OVERRIDE-DATE argument controls this
 behavior, and the option is of no relevance."
@@ -430,7 +433,7 @@ Like `magit-commit-squash' but also run a `--autofixup' rebase."
 
 (defun magit-commit-assert (args &optional nopatch strict)
   (cond
-   (nopatch args)
+   (nopatch (or args (list "--")))
    ((or (magit-anything-staged-p)
         (and (magit-anything-unstaged-p)
              ;; ^ Everything of nothing is still nothing.
@@ -582,13 +585,13 @@ See `magit-commit-autofixup' for an alternative implementation."
 (transient-define-prefix magit-commit-autofixup (phase commit args)
   "Spread staged or unstaged changes across recent commits.
 
-If there are any staged then spread only those, otherwise
-spread all unstaged changes. With a prefix argument use a
-transient command to select infix arguments.
+If there are any staged then spread only those, otherwise spread all
+unstaged changes.  With a prefix argument use a transient command to
+select infix arguments.
 
-This command requires the git-autofixup script, which is
-available from https://github.com/torbiak/git-autofixup.
-See `magit-commit-absorb' for an alternative implementation."
+This command requires the git-autofixup script, which is available from
+https://github.com/torbiak/git-autofixup.  See `magit-commit-absorb' for
+an alternative implementation."
   :value '("-vv")
   ["Arguments"
    (magit-autofixup:--context)
@@ -743,10 +746,10 @@ See `magit-commit-absorb' for an alternative implementation."
 (defun magit-commit-message-buffer ()
   (let* ((find-file-visit-truename t) ; git uses truename of COMMIT_EDITMSG
          (topdir (magit-toplevel)))
-    (--first (equal topdir (with-current-buffer it
-                             (and git-commit-mode (magit-toplevel))))
-             (append (buffer-list (selected-frame))
-                     (buffer-list)))))
+    (seq-find (##equal topdir (with-current-buffer %
+                                (and git-commit-mode (magit-toplevel))))
+              (append (buffer-list (selected-frame))
+                      (buffer-list)))))
 
 (defvar magit-commit-add-log-insert-function #'magit-commit-add-log-insert
   "Used by `magit-commit-add-log' to insert a single entry.")

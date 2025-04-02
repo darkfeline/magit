@@ -47,7 +47,8 @@
    (5 "-b" "Ignore changes in amount of whitespace" "-Xignore-space-change")
    (5 "-w" "Ignore whitespace when comparing lines" "-Xignore-all-space")
    (5 magit-diff:--diff-algorithm :argument "-Xdiff-algorithm=")
-   (5 magit:--gpg-sign)]
+   (magit:--gpg-sign)
+   (magit:--signoff)]
   ["Actions"
    :if-not magit-merge-in-progress-p
    [("m" "Merge"                  magit-merge-plain)
@@ -57,7 +58,7 @@
    [("p" "Preview merge"          magit-merge-preview)
     ""
     ("s" "Squash merge"           magit-merge-squash)
-    ("i" "Dissolve"               magit-merge-into)]]
+    ("d" "Dissolve"               magit-merge-dissolve)]]
   ["Actions"
    :if magit-merge-in-progress-p
    ("m" "Commit merge" magit-commit-create)
@@ -128,7 +129,7 @@ inspect the merge and change the commit message.
   (magit-run-git-async "merge" "--no-commit" args rev))
 
 ;;;###autoload
-(defun magit-merge-into (branch &optional args)
+(defun magit-merge-dissolve (branch &optional args)
   "Merge the current branch into BRANCH and remove the former.
 
 Before merging, force push the source branch to its push-remote,

@@ -39,8 +39,9 @@
    ("-F" "Force"            ("-f" "--force"))
    ("-h" "Disable hooks"    "--no-verify")
    ("-n" "Dry run"          ("-n" "--dry-run"))
-   (5 "-u" "Set upstream"   "--set-upstream")
-   (7 "-t" "Follow tags"    "--follow-tags")]
+   ("-u" "Set upstream"   "--set-upstream" :level 5)
+   ("-T" "Include all tags" "--tags")
+   ("-t" "Include related annotated tags" "--follow-tags")]
   [:if magit-get-current-branch
    :description (lambda ()
                   (format (propertize "Push %s to" 'face 'transient-heading)
@@ -133,8 +134,8 @@ the upstream."
               (not (or (magit-get-upstream-branch branch)
                        (magit--unnamed-upstream-p remote merge)
                        (magit--valid-upstream-p remote merge))))
-      (let* ((branches (cl-union (--map (concat it "/" branch)
-                                        (magit-list-remotes))
+      (let* ((branches (cl-union (mapcar (##concat % "/" branch)
+                                         (magit-list-remotes))
                                  (magit-list-remote-branch-names)
                                  :test #'equal))
              (upstream (magit-completing-read
