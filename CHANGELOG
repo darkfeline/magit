@@ -1,4 +1,92 @@
 # -*- mode: org -*-
+* v4.3.6    2025-06-01
+
+- Generalized and heavily refactored the code, previously used only to
+  highlight diff-related sections and to paint hunks, so that it can
+  be used for other sections as well.  The new implementation should
+  also be a bit faster.  cfe4faaaf6^..c556fee1bd
+
+- A single-section selection now requires a non-empty region.
+  6c4c16942a
+
+- When creating a stash, "On <branch>: " is now offered as a second
+  future history element.  75c6191999, 9b81df36b4
+
+- Added new commands ~git-rebase-drop~, ~git-rebase-alter~ and
+  ~git-rebase-squish~.  479c467080, 9674c4755a
+
+Bugfixes:
+
+- Fixed issues concerning date handling in log margins.  #5373
+
+- The list of rebase actions in the status buffer could contain
+  invalid elements derived from comments in Git's list of such
+  actions.  91806dc729
+
+- Applying the region used to fail, if some part of the same hunk but
+  outside the region has conflicts, even if the part in the region did
+  not.  9e551d9eb7
+
+* v4.3.5    2025-05-14
+
+Bugfixes:
+
+- Fixed a v4.3.3 regression in inserting rebase actions into the
+  status buffer when stopping at the last commit.  #5365
+
+* v4.3.4    2025-05-13
+
+- Arguments, that are normally set by cycling through the possible
+  values displayed in the menu, can now also be set using completion,
+  by using a prefix argument.  #5362
+
+Bugfixes:
+
+- Matching references were no longer displayed on the first line of
+  revision buffers.  48b158500d
+
+- Fixed a v4.3.3 regression in inserting rebase actions into the
+  status buffer when ~--rebase-merges~ is specified.  #5365
+
+- On the "Untracked files" section, ~k~ no longer worked as intended.
+  #5366
+
+Also contains code and documentation cleanups and improvements.
+
+* v4.3.3    2025-05-01
+
+- ~magit-section-show-level~ now acts on all selected sections.  #5354
+
+- Inserting the list of commits being rebased into the status buffer
+  is now much faster.  8e72767262
+
+- All rebase actions are now inserted into the status buffer.
+  69b310e109
+
+- While editing the list of commits and actions to be rebased
+  ~git-rebase-kill-line~ (~k~) on a commented line now uncomments it.
+  ff44ee1bc3
+
+- Added new variants of commands that deal with files for use in Dired
+  buffers, and improved existing variants.  In Dired, these commands
+  are available from ~magit-file-dispatch~ (~C-c M-g~).  542c2f8a75 et al.
+
+- ~magit-branch-shelve~ now prepends the date to the refname, and
+  ~magit-branch-unshelve~ removes such prefixes.  78ffd1a389
+
+- The new function ~magit-insert-shelved-branch~ can be added to
+  ~magit-refs-sections-hook~ to list shelved branches.  d6b7784547
+
+- Added new command ~magit-wip-purge~, which removes old branches
+  created by ~magit-wip-mode~.  d5e0f3a639
+  
+- ~magit-blame-styles~ now supports inserting truncated commit hashes.
+  #4057
+
+- Added new command ~magit-mouse-set-point~.  3c9e519197
+
+Also contains code and documentation cleanups and improvements.
+
 * v4.3.2    2025-04-01
 
 - Removed legacy options ~magit-wip-*-mode-lighter~.  225ea6fd00
@@ -8,7 +96,7 @@
   no longer displayed in the ~magit-log~ menu by default.  c8b1e12bd5
 
 - Renamed ~magit-merge-into~ to ~magit-merge-dissolve~ and changed the
-  key binding in the ~magit-merge~ menu from ~i~ to ~d~.  The descripton
+  key binding in the ~magit-merge~ menu from ~i~ to ~d~.  The description
   in that menu already was "dissolve".  Do this to make it more
   obvious that this command deletes the source branch after it has
   been merged into the target branch.  #4386

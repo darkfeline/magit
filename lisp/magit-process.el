@@ -44,6 +44,9 @@
 (define-obsolete-variable-alias 'magit-process-finish-apply-ansi-colors
   'magit-process-apply-ansi-colors "Magit-Section 4.3.2")
 
+(defclass magit-process-section (magit-section)
+  ((process :initform nil)))
+
 ;;; Options
 
 (defcustom magit-process-connection-type (not (eq system-type 'cygwin))
@@ -114,9 +117,7 @@ displays the text of `magit-process-error-summary' instead."
                 (and prog
                      (string-match-p
                       "\\`\\(?:\\(?:/.*/\\)?git-credential-\\)?cache\\'" prog)
-                     (or (cl-loop for (opt val) on args
-                                  if (string= opt "--socket")
-                                  return val)
+                     (or (cadr (member "--socket" args))
                          (expand-file-name "~/.git-credential-cache/socket")))))
             ;; Note: `magit-process-file' is not yet defined when
             ;; evaluating this form, so we use `process-lines'.
@@ -725,9 +726,6 @@ Magit status buffer."
         process))))
 
 ;;; Process Internals
-
-(defclass magit-process-section (magit-section)
-  ((process :initform nil)))
 
 (setf (alist-get 'process magit--section-type-alist) 'magit-process-section)
 

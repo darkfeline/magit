@@ -814,7 +814,7 @@ Also see `magit-git-config-p'."
 
 (defun magit-git-dir (&optional path)
   "Like (expand-file-name PATH (magit-gitdir)) or just (magit-gitdir)."
-  (declare (obsolete 'magit-gitdir "Magit 4.0.0"))
+  (declare (obsolete magit-gitdir "Magit 4.0.0"))
   (and-let* ((dir (magit-gitdir)))
     (if path
         (expand-file-name (convert-standard-filename path) dir)
@@ -1527,6 +1527,7 @@ to, or to some other symbolic-ref that points to the same ref."
     (pullreq (and (fboundp 'forge--pullreq-branch)
                   (magit-branch-p
                    (forge--pullreq-branch (oref it value)))))
+    (related-refs (magit--painted-branch-at-point))
     ((unpulled unpushed)
      (magit-ref-abbrev
       (replace-regexp-in-string "\\.\\.\\.?" "" (oref it value))))))
@@ -1715,6 +1716,11 @@ according to the branch type."
        upstream (if (equal (magit-get "branch" branch "remote") ".")
                     'magit-branch-local
                   'magit-branch-remote)))))
+
+(defun magit-get-local-upstream-branch (&optional branch)
+  (and-let* ((upstream (magit-get-upstream-branch branch))
+             (upstream (cdr (magit-split-branch-name upstream))))
+    (and (magit-branch-p upstream) upstream)))
 
 (defun magit-get-indirect-upstream-branch (branch &optional force)
   (let ((remote (magit-get "branch" branch "remote")))
@@ -2060,9 +2066,8 @@ SORTBY is a key or list of keys to pass to the `--sort' flag of
 
 (defun magit-remote-head (remote)
   (and-let* ((line (cl-find-if
-                    (lambda (line)
-                      (string-match
-                       "\\`ref: refs/heads/\\([^\s\t]+\\)[\s\t]HEAD\\'" line))
+                    (##string-match
+                     "\\`ref: refs/heads/\\([^\s\t]+\\)[\s\t]HEAD\\'" %)
                     (magit-git-lines "ls-remote" "--symref" remote "HEAD"))))
     (match-string 1 line)))
 

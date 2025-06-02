@@ -7,7 +7,7 @@
 #+texinfo_dir_category: Emacs
 #+texinfo_dir_title: Magit: (magit).
 #+texinfo_dir_desc: Using Git from Emacs with Magit.
-#+subtitle: for version 4.3.2
+#+subtitle: for version 4.3.6
 
 #+setupfile: .orgconfig
 
@@ -24,7 +24,7 @@ directly from within Emacs.  While many fine Git clients exist, only
 Magit and Git itself deserve to be called porcelains.
 
 #+texinfo: @noindent
-This manual is for Magit version 4.3.2.
+This manual is for Magit version 4.3.6.
 
 #+texinfo: @insertcopying
 :END:
@@ -3357,8 +3357,11 @@ that they are available here too.
   Whether to show word-granularity differences within diff hunks.
 
   - ~nil~ Never show fine differences.
-  - ~t~ Show fine differences for the current diff hunk only.
   - ~all~ Show fine differences for all displayed diff hunks.
+  - ~t~ Refine each hunk once it becomes the current section.
+    Keep the refinement when another section is selected.
+    Refreshing the buffer removes all refinement.  This
+    variant is only provided for performance reasons.
 
 - User Option: magit-diff-refine-ignore-whitespace ::
 
@@ -4065,12 +4068,9 @@ These commands can only be used when point is inside a diff.
 - Key: RET (magit-diff-visit-file) ::
 
   This command visits the appropriate version of the file that the
-  diff at point is about.
-
-  This commands visits the worktree version of the appropriate file.
-  The location of point inside the diff determines which file is being
-  visited.  The visited version depends on what changes the diff is
-  about.
+  diff at point is about. The location of point inside the diff
+  determines which file is being visited. The visited version depends
+  on what changes the diff is about.
 
   1. If the diff shows uncommitted changes (i.e., staged or unstaged
      changes), then visit the file in the working tree (i.e., the
@@ -6115,16 +6115,42 @@ the following suffix commands.
 
 - Key: s (git-rebase-squash) ::
 
-  Meld commit on current line into previous commit, and edit message.
+  This command folds the commit on the current line into the previous
+  commit, giving the user a change to manually merge the two messages.
+
+- Key: S (git-rebase-squish) ::
+
+  This command folds the commit on the current line into the previous
+  commit, discarding the message of the previous commit but giving the
+  user a change to edit the final message, based on the message of the
+  current commit.
+
+  This action's indicator, shown in the list of commits, is ~fixup -c~
+  (with a lower-case c).
 
 - Key: f (git-rebase-fixup) ::
 
-  Meld commit on current line into previous commit, discarding the
-  current commit's message.
+  This command folds the commit on the current line into the previous
+  commit, using only the message of the previous commit as-is and
+  discarding the message of the current commit.
+
+- Key: F (git-rebase-alter) ::
+
+  This command folds the commit on the current into the previous
+  commit, discarding the message of the previous commit and instead
+  using the message of the current commit as-is.
+
+  This is like ~git-rebase-alter~, except that it uses the other
+  message.  This is also like ~git-rebase-squish~, except that it lets
+  the user edit the message.
+
+  This action's indicator, shown in the list of commits, is ~fixup -C~
+  (with a upper-case C).
 
 - Key: k (git-rebase-kill-line) ::
 
-  Kill the current action line.
+  Comment the current action line, or if it is already commented, then
+  uncomment it.
 
 - Key: c (git-rebase-pick) ::
 

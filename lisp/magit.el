@@ -17,15 +17,15 @@
 ;; Homepage: https://github.com/magit/magit
 ;; Keywords: git tools vc
 
-;; Package-Version: 4.3.2
+;; Package-Version: 4.3.6
 ;; Package-Requires: (
 ;;     (emacs "27.1")
-;;     (compat "30.0.2.0")
-;;     (llama "0.6.2")
-;;     (magit-section "4.3.2")
+;;     (compat "30.1")
+;;     (llama "0.6.3")
+;;     (magit-section "4.3.6")
 ;;     (seq "2.24")
-;;     (transient "0.8.7")
-;;     (with-editor "3.4.3"))
+;;     (transient "0.9.0")
+;;     (with-editor "3.4.4"))
 
 ;; SPDX-License-Identifier: GPL-3.0-or-later
 
@@ -782,6 +782,7 @@ For X11 something like ~/.xinitrc should work.\n"
     (require 'magit-gitignore)
     (require 'magit-sparse-checkout)
     (require 'magit-extras)
+    (require 'magit-dired)
     (require 'git-rebase)
     (require 'magit-bookmark)))
 

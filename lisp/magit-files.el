@@ -300,8 +300,10 @@ to `magit-dispatch'."
   :info-manual "(magit) Minor Mode for Buffers Visiting Files"
   [:if magit-file-relative-name
    ["File actions"
-    ("  s" "Stage"    magit-file-stage)
-    ("  u" "Unstage"  magit-file-unstage)
+    ("  s" "Stage"    magit-file-stage :if-not-derived dired-mode)
+    ("  s" "Stage"    magit-dired-stage :if-derived dired-mode)
+    ("  u" "Unstage"  magit-file-unstage :if-not-derived dired-mode)
+    ("  u" "Unstage"  magit-dired-unstage :if-derived dired-mode)
     (", x" "Untrack"  magit-file-untrack)
     (", r" "Rename"   magit-file-rename)
     (", k" "Delete"   magit-file-delete)
@@ -311,9 +313,10 @@ to `magit-dispatch'."
     ("d" "Diff"       magit-diff-buffer-file)]
    [""
     ("L" "Log..."     magit-log)
-    ("l" "Log"        magit-log-buffer-file)
+    ("l" "Log"        magit-log-buffer-file :if-not-derived dired-mode)
+    ("l" "Log"        magit-dired-log :if-derived dired-mode)
     ("t" "Trace"      magit-log-trace-definition)
-    (7 "M" "Merged"   magit-log-merged)]
+    ("M" "Merged"     magit-log-merged :level 7)]
    [""
     ("B" "Blame..."   magit-blame)
     ("b" "Blame"      magit-blame-addition)

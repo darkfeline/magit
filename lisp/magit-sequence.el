@@ -31,7 +31,7 @@
 (require 'magit)
 
 ;; For `magit-rebase--todo'.
-(declare-function git-rebase-current-line "git-rebase" ())
+(declare-function git-rebase-current-line "git-rebase" (&optional batch))
 (eval-when-compile
   (cl-pushnew 'action-type eieio--known-slot-names)
   (cl-pushnew 'action eieio--known-slot-names)
@@ -547,10 +547,9 @@ This discards all changes made since the sequence started."
    (magit:--gpg-sign)
    (magit:--signoff)]
   [:if-not magit-rebase-in-progress-p
-   :description (lambda ()
-                  (format (propertize "Rebase %s onto" 'face 'transient-heading)
+   :description (##format (propertize "Rebase %s onto" 'face 'transient-heading)
                           (propertize (or (magit-get-current-branch) "HEAD")
-                                      'face 'magit-branch-local)))
+                                      'face 'magit-branch-local))
    ("p" magit-rebase-onto-pushremote)
    ("u" magit-rebase-onto-upstream)
    ("e" "elsewhere" magit-rebase-branch)]
@@ -969,9 +968,8 @@ If no such sequence is in progress, do nothing."
 If no such sequence is in progress, do nothing."
   (when (magit-rebase-in-progress-p)
     (let* ((gitdir (magit-gitdir))
-           (interactive
-            (file-directory-p (expand-file-name "rebase-merge" gitdir)))
-           (dir  (if interactive "rebase-merge/" "rebase-apply/"))
+           (mergep (file-directory-p (expand-file-name "rebase-merge" gitdir)))
+           (dir  (if mergep "rebase-merge/" "rebase-apply/"))
            (name (thread-first (concat dir "head-name")
                    (expand-file-name gitdir)
                    magit-file-line))
@@ -983,7 +981,7 @@ If no such sequence is in progress, do nothing."
            (name (or (magit-rev-name name "refs/heads/*") name)))
       (magit-insert-section (rebase-sequence)
         (magit-insert-heading (format "Rebasing %s onto %s" name onto))
-        (if interactive
+        (if mergep
             (magit-rebase-insert-merge-sequence onto)
           (magit-rebase-insert-apply-sequence onto))
         (insert ?\n)))))
@@ -993,36 +991,42 @@ If no such sequence is in progress, do nothing."
 These are ordered in that the same way they'll be sorted in the
 status buffer (i.e., the reverse of how they will be applied)."
   (let ((comment-start (or (magit-get "core.commentChar") "#"))
-        lines)
+        (commits ())
+        (actions ()))
     (with-temp-buffer
       (insert-file-contents
        (expand-file-name "rebase-merge/git-rebase-todo" (magit-gitdir)))
       (while (not (eobp))
-        (let ((ln (git-rebase-current-line)))
-          (when (oref ln action-type)
-            (push ln lines)))
+        (when-let ((obj (git-rebase-current-line t)))
+          (push obj actions)
+          (when (memq (oref obj action-type) '(commit merge))
+            (push obj commits)))
         (forward-line)))
-    lines))
+    (let ((abbrevs
+           (and commits
+                (magit-git-lines
+                 "log" "--no-walk=unsorted" "--format=%h"
+                 (mapcar (lambda (obj)
+                           (if (eq (oref obj action-type) 'merge)
+                               (let ((options (oref obj action-options)))
+                                 (and (string-match "-[cC] \\([^ ]+\\)" options)
+                                      (match-string 1 options)))
+                             (oref obj target)))
+                         commits)))))
+      (cl-assert (equal (length commits) (length abbrevs)))
+      (while-let ((obj (pop commits))
+                  (val (pop abbrevs)))
+        (oset obj abbrev val)))
+    actions))
 
 (defun magit-rebase-insert-merge-sequence (onto)
-  (dolist (line (magit-rebase--todo))
-    (with-slots (action-type action action-options target) line
+  (dolist (obj (magit-rebase--todo))
+    (with-slots (action-type action action-options target abbrev trailer) obj
       (pcase action-type
-        ('commit
-         (magit-sequence-insert-commit action target 'magit-sequence-pick))
-        ((or (or `exec `label)
-             (and `merge (guard (not action-options))))
-         (insert (propertize action 'font-lock-face 'magit-sequence-onto) "\s"
-                 (propertize target 'font-lock-face 'git-rebase-label) "\n"))
-        ('merge
-         (if-let ((hash (and (string-match "-[cC] \\([^ ]+\\)" action-options)
-                             (match-string 1 action-options))))
-             (magit-insert-section (commit hash)
-               (magit-insert-heading
-                 (propertize "merge" 'font-lock-face 'magit-sequence-pick)
-                 "\s"
-                 (magit-format-rev-summary hash) "\n"))
-           (error "Failed to parse merge message hash"))))))
+        ((or 'commit (and 'merge (guard abbrev)))
+         (magit-sequence-insert-commit action target 'magit-sequence-pick
+                                       abbrev trailer))
+        ((guard action) (magit-sequence-insert-step action target)))))
   (let ((dir (magit-gitdir)))
     (magit-sequence-insert-sequence
      (magit-file-line (expand-file-name "rebase-merge/stopped-sha" dir))
@@ -1055,13 +1059,15 @@ status buffer (i.e., the reverse of how they will be applied)."
 (defun magit-sequence-insert-sequence (stop onto &optional orig)
   (let ((head (magit-rev-parse "HEAD")) done)
     (setq onto (if onto (magit-rev-parse onto) head))
-    (setq done (magit-git-lines "log" "--format=%H" (concat onto "..HEAD")))
-    (when (and stop (not (member (magit-rev-parse stop) done)))
+    (setq done (mapcar (##split-string % "\0")
+                       (magit-git-lines "log" "--format=%H%x00%h%x00%s"
+                                        (concat onto "..HEAD"))))
+    (when (and stop (not (assoc (magit-rev-parse stop) done)))
       (let ((id (magit-patch-id stop)))
-        (if-let ((matched (seq-find (##equal (magit-patch-id %) id) done)))
+        (if-let ((matched (car (assoc (##equal (magit-patch-id %) id) done))))
             (setq stop matched)
           (cond
-           ((seq-find (##magit-rev-equal % stop) done)
+           ((assoc (##magit-rev-equal % stop) done)
             ;; The commit's testament has been executed.
             (magit-sequence-insert-commit "void" stop 'magit-sequence-drop))
            ;; The faith of the commit is still undecided...
@@ -1087,14 +1093,14 @@ status buffer (i.e., the reverse of how they will be applied)."
                 (t "work")))
              stop 'magit-sequence-part))
            ;; The commit is definitely gone...
-           ((seq-find (##magit-rev-equal % stop) done)
+           ((assoc (##magit-rev-equal % stop) done)
             ;; ...but all of its changes are still in effect.
             (magit-sequence-insert-commit "poof" stop 'magit-sequence-drop))
            (t
             ;; ...and some changes are gone and/or other changes were added.
             (magit-sequence-insert-commit "gone" stop 'magit-sequence-drop)))
           (setq stop nil))))
-    (dolist (rev done)
+    (pcase-dolist (`(,rev ,abbrev ,msg) done)
       (apply #'magit-sequence-insert-commit
              (cond ((equal rev stop)
                     ;; ...but its reincarnation lives on.
@@ -1106,21 +1112,32 @@ status buffer (i.e., the reverse of how they will be applied)."
                             "like")  ; There are new commits.
                           rev (if (equal rev head)
                                   'magit-sequence-head
-                                'magit-sequence-stop)))
+                                'magit-sequence-stop)
+                          abbrev msg))
                    ((equal rev head)
-                    (list "done" rev 'magit-sequence-head))
+                    (list "done" rev 'magit-sequence-head abbrev msg))
                    (t
-                    (list "done" rev 'magit-sequence-done)))))
+                    (list "done" rev 'magit-sequence-done abbrev msg)))))
     (magit-sequence-insert-commit "onto" onto
                                   (if (equal onto head)
                                       'magit-sequence-head
                                     'magit-sequence-onto))))
 
-(defun magit-sequence-insert-commit (type hash face)
+(defun magit-sequence-insert-commit (type hash face &optional abbrev msg)
   (magit-insert-section (commit hash)
     (magit-insert-heading
-      (propertize type 'font-lock-face face)    "\s"
-      (magit-format-rev-summary hash) "\n")))
+      (propertize type 'font-lock-face face) " "
+      (if abbrev
+          (concat (propertize abbrev 'face 'magit-hash) " " msg "\n")
+        (concat (magit-format-rev-summary hash) "\n")))))
+
+(defun magit-sequence-insert-step (type target)
+  (magit-insert-section (rebase-step (cons type target))
+    (magit-insert-heading
+      (propertize type 'font-lock-face 'magit-sequence-pick)
+      (and target
+           (concat "\s"
+                   (propertize target 'font-lock-face 'git-rebase-label))))))
 
 ;;; _
 (provide 'magit-sequence)

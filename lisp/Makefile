@@ -56,6 +56,7 @@ magit-gitignore.elc:       magit.elc
 magit-sparse-checkout.elc: magit.elc
 magit-bundle.elc:          magit.elc
 magit-extras.elc:          magit.elc magit-merge.elc
+magit-dired.elc:           magit.elc
 git-rebase.elc:            magit.elc
 magit-bookmark.elc:        magit.elc
 
@@ -114,7 +115,7 @@ clean:
 ## Templates #########################################################
 
 define VERSIONLIB_TMPL
-;;; $(PKG)-version.el --- the Magit version you are using
+;;; $(PKG)-version.el --- The Magit version you are using  -*- lexical-binding:t -*-
 
 (setq $(PKG)-version "$(VERSION)")
 
