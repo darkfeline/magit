@@ -31,7 +31,7 @@ General Public License for more details.
 @finalout
 @titlepage
 @title Magit User Manual
-@subtitle for version 4.3.6
+@subtitle for version 4.3.7
 @author Jonas Bernoulli
 @page
 @vskip 0pt plus 1filll
@@ -53,7 +53,7 @@ directly from within Emacs.  While many fine Git clients exist, only
 Magit and Git itself deserve to be called porcelains.
 
 @noindent
-This manual is for Magit version 4.3.6.
+This manual is for Magit version 4.3.7.
 
 @insertcopying
 @end ifnottex
@@ -1080,6 +1080,12 @@ To move within a section use the usual keys (@code{C-p}, @code{C-n}, @code{C-b},
 whose global bindings are not shadowed.  To move to another section use
 the following commands.
 
+The section movement commands described here run the hook
+@code{magit-section-movement-hook}.  Note that they explicitly run that hook
+and that aribrary other movement, defined in Emacs and other packages,
+do not run that hook.  That hook, and hook functions that can be added
+to it, or are part of its default value, are described below.
+
 @table @asis
 @item @kbd{p} (@code{magit-section-backward})
 @kindex p
@@ -1126,8 +1132,10 @@ remove function that haven't even been added yet, for example:
 @end lisp
 
 @defvar magit-section-movement-hook
-This hook is run by all of the above movement commands, after
-arriving at the destination.
+This hook is run by all of the above section movement commands,
+after arriving at the destination.  It is @strong{not} run by arbitrary other
+movement commands (such as @code{next-line}), which are provided by Emacs
+or third-party packages.
 @end defvar
 
 @defun magit-hunk-set-window-start
@@ -1194,9 +1202,11 @@ in another window of the same frame.
 @defopt magit-update-other-window-delay
 Delay before automatically updating the other window.
 
-When moving around in certain buffers, then certain other buffers,
-which are being displayed in another window, may optionally be
-updated to display information about the section at point.
+When moving around in certain buffers using Magit's own section
+movement commands (but not other movement commands), then certain
+other buffers, which are being displayed in another window, may
+optionally be updated to display information about the section at
+point.
 
 When holding down a key to move by more than just one section, then
 that would update that buffer for each section on the way.  To
@@ -2144,15 +2154,15 @@ some value (e.g., the name of the current branch).
 
 When Git is run for side-effects, the process output is logged in a
 per-repository log buffer, which can be consulted using the
-@code{magit-process} command when things don't go as expected.
+@code{magit-process-buffer} command, when things don't go as expected.
 
-The output/errors for up to `magit-process-log-max' Git commands are
+The output/errors for up to @code{magit-process-log-max} Git commands are
 retained.
 
 @table @asis
-@item @kbd{$} (@code{magit-process})
+@item @kbd{$} (@code{magit-process-buffer})
 @kindex $
-@findex magit-process
+@findex magit-process-buffer
 This commands displays the process buffer for the current
 repository.
 @end table
@@ -2206,10 +2216,13 @@ tooltip for mouse users.  This error indicator persists in the mode
 line until the next magit buffer refresh.
 
 If you do not wish process errors to be indicated in the mode line,
-customize the @code{magit-process-display-mode-line-error} user option.
+set @code{magit-process-display-mode-line-error} to @code{nil}.
 
-Process errors are additionally indicated at the top of the status
-buffer.
+Process errors are displayed at the top of the status buffer and in
+the echo area.  In both places a hint is appended, which informs users
+that they can see the full output in the process buffer and how to
+display that buffer.  However, once you are aware of that, you might
+want to set @code{magit-show-process-buffer-hint} to @code{nil}.
 
 @anchor{Running Git Manually}
 @subsection Running Git Manually
@@ -6216,7 +6229,7 @@ checkout branches, and to make changes to existing branches.  It is
 not used to fetch, pull, merge, rebase, or push branches, i.e., this
 command deals with branches themselves, not with the commits reachable
 from them.  Those features are available from separate transient
-command.
+commands.
 
 @table @asis
 @item @kbd{b} (@code{magit-branch})
