@@ -22,7 +22,6 @@
 ;;     (emacs "27.1")
 ;;     (compat "30.1")
 ;;     (llama "0.6.3")
-;;     (magit-section "4.3.7")
 ;;     (seq "2.24")
 ;;     (transient "0.9.3")
 ;;     (with-editor "3.4.4"))
