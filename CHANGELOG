@@ -1,4 +1,22 @@
 # -*- mode: org -*-
+* v4.3.8    2025-07-05
+
+Bugfixes:
+
+- In v4.3.7 we started to restore the display-start positions of the
+  windows displaying a buffer that is being refreshed, but in log
+  buffers that is undesirable.  After creating a new commit we want
+  that to immediately be displayed at the top of windows displaying
+  log buffers.  #5403
+
+- Refreshing was skipped after discarding all untracked files.
+
+- When sub-directories contain ".gitignore" files, then invoking
+  ~magit-discard~ on the "Untracked files" section did not necessarily
+  remove the same set of files as listed in that section.  (At least
+  it did show the files, which would be removed, in the confirmation
+  prompt.)  #5405
+
 * v4.3.7    2025-07-01
 
 - Refreshing a buffer causes its content to be recreated, which can
