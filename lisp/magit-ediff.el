@@ -266,21 +266,21 @@ and alternative commands."
                            (goto-char (point-min))
                            (unless (re-search-forward "^<<<<<<< " nil t)
                              (magit-stage-files (list file)))))))))
-        (if fileC
-            (magit-ediff-buffers
-             ((magit-get-revision-buffer revA fileA)
-              (magit-find-file-noselect  revA fileA))
-             ((magit-get-revision-buffer revB fileB)
-              (magit-find-file-noselect  revB fileB))
-             ((magit-get-revision-buffer revC fileC)
-              (magit-find-file-noselect  revC fileC))
-             setup quit file)
-          (magit-ediff-buffers
-           ((magit-get-revision-buffer revA fileA)
-            (magit-find-file-noselect  revA fileA))
-           ((magit-get-revision-buffer revB fileB)
-            (magit-find-file-noselect  revB fileB))
-           nil setup quit file))))))
+        (cond (fileC
+               (magit-ediff-buffers
+                ((magit-get-revision-buffer revA fileA)
+                 (magit-find-file-noselect  revA fileA))
+                ((magit-get-revision-buffer revB fileB)
+                 (magit-find-file-noselect  revB fileB))
+                ((magit-get-revision-buffer revC fileC)
+                 (magit-find-file-noselect  revC fileC))
+                setup quit file))
+              ((magit-ediff-buffers
+                ((magit-get-revision-buffer revA fileA)
+                 (magit-find-file-noselect  revA fileA))
+                ((magit-get-revision-buffer revB fileB)
+                 (magit-find-file-noselect  revB fileB))
+                nil setup quit file)))))))
 
 ;;;###autoload
 (defun magit-ediff-resolve-rest (file)
@@ -332,7 +332,7 @@ FILE has to be relative to the top directory of the repository."
            (bufC* (or bufC (find-file-noselect file)))
            (coding-system-for-read
             (buffer-local-value 'buffer-file-coding-system bufC*))
-           (bufA* (magit-find-file-noselect-1 "HEAD" file t))
+           (bufA* (magit-find-file-noselect "HEAD" file t))
            (bufB* (magit-find-file-index-noselect file t)))
       (with-current-buffer bufB* (setq buffer-read-only nil))
       (magit-ediff-buffers
@@ -488,8 +488,7 @@ mind at all, then it asks the user for a command to run."
               (magit-ediff-show-stash revB))
              (file
               (funcall command file))
-             (t
-              (call-interactively command)))))))
+             ((call-interactively command)))))))
 
 ;;;###autoload
 (defun magit-ediff-show-staged (file)
@@ -602,4 +601,15 @@ stash that were staged."
 
 ;;; _
 (provide 'magit-ediff)
+;; Local Variables:
+;; read-symbol-shorthands: (
+;;   ("and$"         . "cond-let--and$")
+;;   ("and>"         . "cond-let--and>")
+;;   ("and-let"      . "cond-let--and-let")
+;;   ("if-let"       . "cond-let--if-let")
+;;   ("when-let"     . "cond-let--when-let")
+;;   ("while-let"    . "cond-let--while-let")
+;;   ("match-string" . "match-string")
+;;   ("match-str"    . "match-string-no-properties"))
+;; End:
 ;;; magit-ediff.el ends here

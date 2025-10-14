@@ -572,7 +572,7 @@ See `magit-commit-autofixup' for an alternative implementation."
     (when commit
       (setq commit (magit-rebase-interactive-assert commit t)))
     (if (and commit (eq phase 'run))
-        (progn (magit-run-git-async "absorb" args "-b" commit) t)
+        (prog1 t (magit-run-git-async "absorb" args "-b" commit))
       (magit-log-select
         (lambda (commit)
           (with-no-warnings ; about non-interactive use
@@ -614,7 +614,7 @@ an alternative implementation."
     (when commit
       (setq commit (magit-rebase-interactive-assert commit t)))
     (if (and commit (eq phase 'run))
-        (progn (magit-run-git-async "autofixup" args commit) t)
+        (prog1 t (magit-run-git-async "autofixup" args commit))
       (magit-log-select
         (lambda (commit)
           (with-no-warnings ; about non-interactive use
@@ -707,8 +707,8 @@ an alternative implementation."
     (cond
      ((not
        (and (eq this-command 'magit-diff-while-committing)
-            (and-let* ((buf (magit-get-mode-buffer
-                             'magit-diff-mode nil 'selected)))
+            (and-let ((buf (magit-get-mode-buffer
+                            'magit-diff-mode nil 'selected)))
               (and (equal rev (buffer-local-value 'magit-buffer-range buf))
                    (equal arg (buffer-local-value 'magit-buffer-typearg buf)))))))
      ((eq command 'magit-commit-amend)
@@ -784,7 +784,7 @@ actually insert the entry."
       (narrow-to-region (point-min) (point))
       (cond ((re-search-backward (format "* %s\\(?: (\\([^)]+\\))\\)?: " file)
                                  nil t)
-             (when (equal (match-string 1) defun)
+             (when (equal (match-str 1) defun)
                (setq defun nil))
              (re-search-forward ": "))
             (t
@@ -813,4 +813,15 @@ actually insert the entry."
 
 ;;; _
 (provide 'magit-commit)
+;; Local Variables:
+;; read-symbol-shorthands: (
+;;   ("and$"         . "cond-let--and$")
+;;   ("and>"         . "cond-let--and>")
+;;   ("and-let"      . "cond-let--and-let")
+;;   ("if-let"       . "cond-let--if-let")
+;;   ("when-let"     . "cond-let--when-let")
+;;   ("while-let"    . "cond-let--while-let")
+;;   ("match-string" . "match-string")
+;;   ("match-str"    . "match-string-no-properties"))
+;; End:
 ;;; magit-commit.el ends here

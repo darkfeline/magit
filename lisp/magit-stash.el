@@ -448,10 +448,10 @@ Then apply STASH, dropping it if it applies cleanly."
     (unless noerror
       (user-error "No %s changes to save" (cond ((not index)  "unstaged")
                                                 ((not worktree) "staged")
-                                                (t "local"))))))
+                                                ("local"))))))
 
-(defun magit-stash-store (message ref commit)
-  (magit-update-ref ref message commit))
+(defun magit-stash-store (message ref rev)
+  (magit-update-ref ref message rev))
 
 (defun magit-stash-create (message index worktree untracked)
   (unless (magit-rev-parse "--verify" "HEAD")
@@ -637,8 +637,8 @@ See also info node `(magit)Section Movement'."
 (cl-defmethod magit-buffer-value (&context (major-mode magit-stash-mode))
   magit-buffer-revision)
 
-(defun magit-stash-insert-section (commit range message &optional files)
-  (magit-insert-section (commit commit)
+(defun magit-stash-insert-section (rev range message &optional files)
+  (magit-insert-section (commit rev)
     (magit-insert-heading message)
     (magit--insert-diff nil
       "diff" range "-p" "--no-prefix" magit-buffer-diff-args
@@ -681,4 +681,15 @@ that make up the stash."
 
 ;;; _
 (provide 'magit-stash)
+;; Local Variables:
+;; read-symbol-shorthands: (
+;;   ("and$"         . "cond-let--and$")
+;;   ("and>"         . "cond-let--and>")
+;;   ("and-let"      . "cond-let--and-let")
+;;   ("if-let"       . "cond-let--if-let")
+;;   ("when-let"     . "cond-let--when-let")
+;;   ("while-let"    . "cond-let--while-let")
+;;   ("match-string" . "match-string")
+;;   ("match-str"    . "match-string-no-properties"))
+;; End:
 ;;; magit-stash.el ends here

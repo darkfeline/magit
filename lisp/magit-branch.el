@@ -252,24 +252,24 @@ has to be used to view and change branch related variables."
   (transient-args 'magit-branch))
 
 ;;;###autoload
-(defun magit-checkout (revision &optional args)
-  "Checkout REVISION, updating the index and the working tree.
-If REVISION is a local branch, then that becomes the current
+(defun magit-checkout (commit &optional args)
+  "Checkout COMMIT, updating the index and the working tree.
+If COMMIT is a local branch, then that becomes the current
 branch.  If it is something else, then `HEAD' becomes detached.
 Checkout fails if the working tree or the staging area contain
 changes.
-\n(git checkout REVISION)."
+\n(git checkout COMMIT)."
   (declare (interactive-only magit--checkout))
   (interactive (list (magit-read-other-branch-or-commit "Checkout")
                      (magit-branch-arguments)))
-  (when (string-match "\\`heads/\\(.+\\)" revision)
-    (setq revision (match-string 1 revision)))
-  (magit-run-git-async "checkout" args revision))
+  (when (string-match "\\`heads/\\(.+\\)" commit)
+    (setq commit (match-str 1 commit)))
+  (magit-run-git-async "checkout" args commit))
 
-(defun magit--checkout (revision &optional args)
-  (when (string-match "\\`heads/\\(.+\\)" revision)
-    (setq revision (match-string 1 revision)))
-  (magit-call-git "checkout" args revision))
+(defun magit--checkout (rev &optional args)
+  (when (string-match "\\`heads/\\(.+\\)" rev)
+    (setq rev (match-str 1 rev)))
+  (magit-call-git "checkout" args rev))
 
 ;;;###autoload
 (defun magit-branch-create (branch start-point)
@@ -319,7 +319,7 @@ does."
            (and (not (magit-commit-p arg))
                 (magit-read-starting-point "Create and checkout branch" arg)))))
   (when (string-match "\\`heads/\\(.+\\)" arg)
-    (setq arg (match-string 1 arg)))
+    (setq arg (match-str 1 arg)))
   (if start-point
       (with-suppressed-warnings ((interactive-only magit-branch-and-checkout))
         (magit-branch-and-checkout arg start-point))
@@ -374,8 +374,7 @@ when using `magit-branch-and-checkout'."
                   choice))
            ((member choice local)
             (list choice))
-           (t
-            (list choice (magit-read-starting-point "Create" choice))))))
+           ((list choice (magit-read-starting-point "Create" choice))))))
   (cond
    ((not start-point)
     (magit--checkout branch (magit-branch-arguments))
@@ -496,37 +495,38 @@ from the source branch's upstream, then an error is raised."
              (magit-anything-modified-p))
     (message "Staying on HEAD due to uncommitted changes")
     (setq checkout t))
-  (if-let ((current (magit-get-current-branch)))
-      (let ((tracked (magit-get-upstream-branch current))
-            base)
-        (when from
-          (unless (magit-rev-ancestor-p from current)
-            (user-error "Cannot spin off %s.  %s is not reachable from %s"
-                        branch from current))
-          (when (and tracked
-                     (magit-rev-ancestor-p from tracked))
-            (user-error "Cannot spin off %s.  %s is ancestor of upstream %s"
-                        branch from tracked)))
-        (let ((magit-process-raise-error t))
-          (if checkout
-              (magit-call-git "checkout" "-b" branch current)
-            (magit-call-git "branch" branch current)))
-        (when-let ((upstream (magit-get-indirect-upstream-branch current)))
-          (magit-call-git "branch" "--set-upstream-to" upstream branch))
-        (when (and tracked
-                   (setq base
-                         (if from
-                             (concat from "^")
-                           (magit-git-string "merge-base" current tracked)))
-                   (not (magit-rev-eq base current)))
-          (if checkout
-              (magit-call-git "update-ref" "-m"
-                              (format "reset: moving to %s" base)
-                              (concat "refs/heads/" current) base)
-            (magit-call-git "reset" "--hard" base))))
-    (if checkout
-        (magit-call-git "checkout" "-b" branch)
-      (magit-call-git "branch" branch)))
+  (cond-let
+    ([current (magit-get-current-branch)]
+     (let ((tracked (magit-get-upstream-branch current))
+           base)
+       (when from
+         (unless (magit-rev-ancestor-p from current)
+           (user-error "Cannot spin off %s.  %s is not reachable from %s"
+                       branch from current))
+         (when (and tracked
+                    (magit-rev-ancestor-p from tracked))
+           (user-error "Cannot spin off %s.  %s is ancestor of upstream %s"
+                       branch from tracked)))
+       (let ((magit-process-raise-error t))
+         (if checkout
+             (magit-call-git "checkout" "-b" branch current)
+           (magit-call-git "branch" branch current)))
+       (when-let ((upstream (magit-get-indirect-upstream-branch current)))
+         (magit-call-git "branch" "--set-upstream-to" upstream branch))
+       (when (and tracked
+                  (setq base
+                        (if from
+                            (concat from "^")
+                          (magit-git-string "merge-base" current tracked)))
+                  (not (magit-rev-eq base current)))
+         (if checkout
+             (magit-call-git "update-ref" "-m"
+                             (format "reset: moving to %s" base)
+                             (concat "refs/heads/" current) base)
+           (magit-call-git "reset" "--hard" base)))))
+    (checkout
+     (magit-call-git "checkout" "-b" branch))
+    ((magit-call-git "branch" branch)))
   (magit-refresh))
 
 ;;;###autoload
@@ -595,16 +595,16 @@ prompt is confusing."
        (setq branches
              (list (magit-read-branch-prefer-other
                     (if force "Force delete branch" "Delete branch")))))
-     (when-let (((not force))
-                (unmerged (seq-remove #'magit-branch-merged-p branches)))
-       (if (magit-confirm 'delete-unmerged-branch
-             "Delete unmerged branch %s"
-             "Delete %d unmerged branches"
-             'noabort unmerged)
-           (setq force branches)
-         (or (setq branches
-                   (cl-set-difference branches unmerged :test #'equal))
-             (user-error "Abort"))))
+     (cond-let
+       (force)
+       [[unmerged (seq-remove #'magit-branch-merged-p branches)]]
+       ((magit-confirm 'delete-unmerged-branch
+          "Delete unmerged branch %s"
+          "Delete %d unmerged branches"
+          'noabort unmerged)
+        (setq force branches))
+       ((setq branches (cl-set-difference branches unmerged :test #'equal)))
+       ((user-error "Abort")))
      (list branches force)))
   (let ((refs (mapcar #'magit-ref-fullname branches)))
     ;; If a member of refs is nil, that means that
@@ -618,11 +618,10 @@ prompt is confusing."
            (format "%s is" (seq-find #'magit-ref-ambiguous-p branches)))
           ((= len (length refs))
            (format "These %s names are" len))
-          (t
-           (format "%s of these names are" len))))))
+          ((format "%s of these names are" len))))))
     (cond
      ((string-match "^refs/remotes/\\([^/]+\\)" (car refs))
-      (let* ((remote (match-string 1 (car refs)))
+      (let* ((remote (match-str 1 (car refs)))
              (offset (1+ (length remote))))
         (cond
          ((magit-confirm 'delete-branch-on-remote
@@ -728,25 +727,24 @@ prompt is confusing."
   (magit-set nil "branch" branch "pushRemote"))
 
 (defun magit-delete-remote-branch-sentinel (remote refs process event)
-  (when (memq (process-status process) '(exit signal))
-    (if (= (process-exit-status process) 1)
-        (if-let ((on-remote (mapcar (##concat "refs/remotes/" remote "/" %)
-                                    (magit-remote-list-branches remote)))
-                 (rest (seq-filter (##and (not (member % on-remote))
-                                          (magit-ref-exists-p %))
-                                   refs)))
-            (progn
-              (process-put process 'inhibit-refresh t)
-              (magit-process-sentinel process event)
-              (setq magit-this-error nil)
-              (message "Some remote branches no longer exist.  %s"
-                       "Deleting just the local tracking refs instead...")
-              (dolist (ref rest)
-                (magit-call-git "update-ref" "-d" ref))
-              (magit-refresh)
-              (message "Deleting local remote-tracking refs...done"))
-          (magit-process-sentinel process event))
-      (magit-process-sentinel process event))))
+  (cond-let*
+    ((not (memq (process-status process) '(exit signal))))
+    ([_(= (process-exit-status process) 1)]
+     [on-remote (mapcar (##concat "refs/remotes/" remote "/" %)
+                        (magit-remote-list-branches remote))]
+     [rest (seq-filter (##and (not (member % on-remote))
+                              (magit-ref-exists-p %))
+                       refs)]
+     (process-put process 'inhibit-refresh t)
+     (magit-process-sentinel process event)
+     (setq magit-this-error nil)
+     (message "Some remote branches no longer exist.  %s"
+              "Deleting just the local tracking refs instead...")
+     (dolist (ref rest)
+       (magit-call-git "update-ref" "-d" ref))
+     (magit-refresh)
+     (message "Deleting local remote-tracking refs...done"))
+    ((magit-process-sentinel process event))))
 
 ;;;###autoload
 (defun magit-branch-rename (old new &optional force)
@@ -766,7 +764,7 @@ the remote."
                                  nil 'magit-revision-history)
            current-prefix-arg)))
   (when (string-match "\\`heads/\\(.+\\)" old)
-    (setq old (match-string 1 old)))
+    (setq old (match-str 1 old)))
   (when (equal old new)
     (user-error "Old and new branch names are the same"))
   (magit-call-git "branch" (if force "-M" "-m") old new)
@@ -787,9 +785,8 @@ the remote."
                  (or (not (eq magit-branch-rename-push-target 'forge-only))
                      (and (require (quote forge) nil t)
                           (fboundp 'forge--split-forge-url)
-                          (and-let* ((url (magit-git-string
-                                           "remote" "get-url" remote)))
-                            (forge--split-forge-url url)))))
+                          (and$ (magit-git-string "remote" "get-url" remote)
+                                (forge--split-forge-url $)))))
         (let ((old-target (magit-get-push-branch old t))
               (new-target (magit-get-push-branch new t))
               (remote (magit-get-push-remote new)))
@@ -830,12 +827,7 @@ and also rename the respective reflog file."
 Rename \"refs/shelved/BRANCH\" to \"refs/heads/BRANCH\".  If BRANCH
 is prefixed with \"YYYY-MM-DD\", then drop that part of the name.
 Also rename the respective reflog file."
-  (interactive
-   (list (magit-completing-read
-          "Unshelve branch"
-          (mapcar (##substring % 8)
-                  (nreverse (magit-list-refnames "refs/shelved")))
-          nil t)))
+  (interactive (list (magit-read-shelved-branch "Unshelve branch")))
   (let ((old (concat "refs/shelved/" branch))
         (new (concat "refs/heads/"
                      (if (string-match-p
@@ -979,4 +971,15 @@ Also rename the respective reflog file."
 
 ;;; _
 (provide 'magit-branch)
+;; Local Variables:
+;; read-symbol-shorthands: (
+;;   ("and$"         . "cond-let--and$")
+;;   ("and>"         . "cond-let--and>")
+;;   ("and-let"      . "cond-let--and-let")
+;;   ("if-let"       . "cond-let--if-let")
+;;   ("when-let"     . "cond-let--when-let")
+;;   ("while-let"    . "cond-let--while-let")
+;;   ("match-string" . "match-string")
+;;   ("match-str"    . "match-string-no-properties"))
+;; End:
 ;;; magit-branch.el ends here

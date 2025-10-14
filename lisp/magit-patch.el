@@ -28,6 +28,8 @@
 
 (require 'magit)
 
+(declare-function message-goto-body "message" (&optional interactive))
+
 ;;; Options
 
 (defcustom magit-patch-save-arguments '(exclude "--stat")
@@ -116,8 +118,8 @@ which creates patches for all commits that are reachable from
       (save-match-data
         (find-file
          (expand-file-name
-          (concat (and-let* ((v (transient-arg-value "--reroll-count=" args)))
-                    (format "v%s-" v))
+          (concat (and$ (transient-arg-value "--reroll-count=" args)
+                        (format "v%s-" $))
                   "0000-cover-letter.patch")
           (let ((topdir (magit-toplevel)))
             (if-let ((dir (transient-arg-value "--output-directory=" args)))
@@ -150,9 +152,8 @@ which creates patches for all commits that are reachable from
   :reader #'magit-format-patch-select-base)
 
 (defun magit-format-patch-select-base (prompt initial-input history)
-  (or (magit-completing-read prompt (cons "auto" (magit-list-refnames))
-                             nil nil initial-input history "auto")
-      (user-error "Nothing selected")))
+  (magit-completing-read prompt (cons "auto" (magit-list-refnames))
+                         nil 'any initial-input history "auto"))
 
 (transient-define-argument magit-format-patch:--reroll-count ()
   :description "Reroll count"
@@ -251,8 +252,8 @@ which creates patches for all commits that are reachable from
      (list (expand-file-name
             (read-file-name "Apply patch: "
                             default-directory nil nil
-                            (and-let* ((file (magit-file-at-point)))
-                              (file-relative-name file))))
+                            (and$ (magit-file-at-point)
+                                  (file-relative-name $))))
            (transient-args 'magit-patch-apply))))
   (if (not file)
       (transient-setup 'magit-patch-apply)
@@ -315,6 +316,7 @@ is asked to pull.  START has to be reachable from that commit."
    (list (magit-get "remote" (magit-read-remote "Remote") "url")
          (magit-read-branch-or-commit "Start" (magit-get-upstream-branch))
          (magit-read-branch-or-commit "End")))
+  (require 'message)
   (let ((dir default-directory))
     ;; mu4e changes default-directory
     (compose-mail)
@@ -325,4 +327,15 @@ is asked to pull.  START has to be reachable from that commit."
 
 ;;; _
 (provide 'magit-patch)
+;; Local Variables:
+;; read-symbol-shorthands: (
+;;   ("and$"         . "cond-let--and$")
+;;   ("and>"         . "cond-let--and>")
+;;   ("and-let"      . "cond-let--and-let")
+;;   ("if-let"       . "cond-let--if-let")
+;;   ("when-let"     . "cond-let--when-let")
+;;   ("while-let"    . "cond-let--while-let")
+;;   ("match-string" . "match-string")
+;;   ("match-str"    . "match-string-no-properties"))
+;; End:
 ;;; magit-patch.el ends here

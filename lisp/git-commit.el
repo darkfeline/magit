@@ -235,7 +235,7 @@ Also see `magit-post-commit-hook'."
   :type 'hook
   :get #'magit-hook-custom-get)
 
-(defcustom git-commit-post-finish-hook-timeout 1
+(defcustom git-commit-post-finish-hook-timeout 2
   "Time in seconds to wait for git to create a commit.
 
 The hook `git-commit-post-finish-hook' (which see) is run only
@@ -502,7 +502,7 @@ the redundant bindings, then set this to nil, before loading
                   (not (file-accessible-directory-p
                         (file-name-directory buffer-file-name)))
                   (magit-expand-git-file-name (substring buffer-file-name 2))))
-       ((file-accessible-directory-p (file-name-directory file)))
+       (_(file-accessible-directory-p (file-name-directory file)))
        (inhibit-read-only t))
     (insert-file-contents file t)
     t))
@@ -619,17 +619,14 @@ Used as the local value of `header-line-format', in buffer using
 
 (defun git-commit-run-post-finish-hook (previous)
   (when git-commit-post-finish-hook
-    (cl-block nil
-      (let ((break (time-add (current-time)
-                             (seconds-to-time
-                              git-commit-post-finish-hook-timeout))))
-        (while (equal (magit-rev-parse "HEAD") previous)
-          (if (time-less-p (current-time) break)
-              (sit-for 0.01)
-            (message "No commit created after 1 second.  Not running %s."
-                     'git-commit-post-finish-hook)
-            (cl-return))))
-      (run-hooks 'git-commit-post-finish-hook))))
+    (if (with-timeout (git-commit-post-finish-hook-timeout)
+          (while (equal (magit-rev-parse "HEAD") previous)
+            (sit-for 0.01))
+          t)
+        (run-hooks 'git-commit-post-finish-hook)
+      (message "No commit created after %s second.  Not running %s."
+               git-commit-post-finish-hook-timeout
+               'git-commit-post-finish-hook))))
 
 (define-minor-mode git-commit-mode
   "Auxiliary minor mode used when editing Git commit messages.
@@ -721,15 +718,15 @@ conventions are checked."
       (save-excursion
         (goto-char (point-min))
         (re-search-forward (git-commit-summary-regexp) nil t)
-        (if (equal (match-string 1) "")
+        (if (equal (match-str 1) "")
             t ; Just try; we don't know whether --allow-empty-message was used.
           (and (or (not (memq 'overlong-summary-line
                               git-commit-style-convention-checks))
-                   (equal (match-string 2) "")
+                   (equal (match-str 2) "")
                    (y-or-n-p "Summary line is too long.  Commit anyway? "))
                (or (not (memq 'non-empty-second-line
                               git-commit-style-convention-checks))
-                   (not (match-string 3))
+                   (not (match-str 3))
                    (y-or-n-p "Second line is not empty.  Commit anyway? ")))))))
 
 (defun git-commit-cancel-message ()
@@ -751,7 +748,7 @@ With a numeric prefix ARG, go back ARG messages."
       ;; non-empty and newly written comment, because otherwise
       ;; it would be irreversibly lost.
       (when-let* ((message (git-commit-buffer-message))
-                  ((not (ring-member log-edit-comment-ring message))))
+                  (_(not (ring-member log-edit-comment-ring message))))
         (ring-insert log-edit-comment-ring message)
         (cl-incf arg)
         (setq len (ring-length log-edit-comment-ring)))
@@ -799,16 +796,16 @@ Save current message first."
 (defun git-commit-save-message ()
   "Save current message to `log-edit-comment-ring'."
   (interactive)
-  (if-let ((message (git-commit-buffer-message)))
-      (progn
-        (when-let ((index (ring-member log-edit-comment-ring message)))
-          (ring-remove log-edit-comment-ring index))
-        (ring-insert log-edit-comment-ring message)
-        (when git-commit-use-local-message-ring
-          (magit-repository-local-set 'log-edit-comment-ring
-                                      log-edit-comment-ring))
-        (message "Message saved"))
-    (message "Only whitespace and/or comments; message not saved")))
+  (cond-let
+    ([message (git-commit-buffer-message)]
+     (when-let ((index (ring-member log-edit-comment-ring message)))
+       (ring-remove log-edit-comment-ring index))
+     (ring-insert log-edit-comment-ring message)
+     (when git-commit-use-local-message-ring
+       (magit-repository-local-set 'log-edit-comment-ring
+                                   log-edit-comment-ring))
+     (message "Message saved"))
+    ((message "Only whitespace and/or comments; message not saved"))))
 
 (defun git-commit-prepare-message-ring ()
   (make-local-variable 'log-edit-comment-ring-index)
@@ -950,11 +947,11 @@ completion candidates.  The input must have the form \"NAME <EMAIL>\"."
               (sort (delete-dups
                      (magit-git-lines "log" "-n9999" "--format=%aN <%ae>"))
                     #'string<)
-              nil nil nil 'git-commit-read-ident-history)))
+              nil 'any nil 'git-commit-read-ident-history)))
     (save-match-data
       (if (string-match "\\`\\([^<]+\\) *<\\([^>]+\\)>\\'" str)
-          (list (save-match-data (string-trim (match-string 1 str)))
-                (string-trim (match-string 2 str)))
+          (list (save-match-data (string-trim (match-str 1 str)))
+                (string-trim (match-str 2 str)))
         (user-error "Invalid input")))))
 
 (defun git-commit--insert-ident-trailer (trailer name email)
@@ -1221,4 +1218,15 @@ Elisp doc-strings, including this one.  Unlike in doc-strings,
  "git-commit 4.0.0")
 
 (provide 'git-commit)
+;; Local Variables:
+;; read-symbol-shorthands: (
+;;   ("and$"         . "cond-let--and$")
+;;   ("and>"         . "cond-let--and>")
+;;   ("and-let"      . "cond-let--and-let")
+;;   ("if-let"       . "cond-let--if-let")
+;;   ("when-let"     . "cond-let--when-let")
+;;   ("while-let"    . "cond-let--while-let")
+;;   ("match-string" . "match-string")
+;;   ("match-str"    . "match-string-no-properties"))
+;; End:
 ;;; git-commit.el ends here

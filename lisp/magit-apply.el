@@ -33,6 +33,7 @@
 (require 'magit-diff)
 (require 'magit-wip)
 
+(require 'dired)
 (require 'transient) ; See #3732.
 
 ;; For `magit-apply'
@@ -161,15 +162,15 @@ and only the second and third are to be applied, they would be
 adjusted as \"@@ -10,6 +10,7 @@\" and \"@@ -18,6 +19,7 @@\"."
   (let* ((first-hunk (car hunks))
          (offset (if (string-match diff-hunk-header-re-unified first-hunk)
-                     (- (string-to-number (match-string 3 first-hunk))
-                        (string-to-number (match-string 1 first-hunk)))
+                     (- (string-to-number (match-str 3 first-hunk))
+                        (string-to-number (match-str 1 first-hunk)))
                    (error "Header hunks have to be applied individually"))))
     (if (= offset 0)
         hunks
       (mapcar (lambda (hunk)
                 (if (string-match diff-hunk-header-re-unified hunk)
                     (replace-match (number-to-string
-                                    (- (string-to-number (match-string 3 hunk))
+                                    (- (string-to-number (match-str 3 hunk))
                                        offset))
                                    t t hunk 3)
                   (error "Hunk does not have expected header")))
@@ -218,7 +219,7 @@ adjusted as \"@@ -10,6 +10,7 @@\" and \"@@ -18,6 +19,7 @@\"."
                   (mapcar (##oref % value) section:s)))
          (command (symbol-name this-command))
          (command (if (and command (string-match "^magit-\\([^-]+\\)" command))
-                      (match-string 1 command)
+                      (match-str 1 command)
                     "apply"))
          (context (magit-diff-get-context))
          (ignore-context (magit-diff-ignore-any-space-p)))
@@ -449,8 +450,8 @@ ignored) files."
   (magit-wip-commit-after-apply files " after unstage"))
 
 (defun magit-unstage-intent (files)
-  (if-let ((staged (magit-staged-files))
-           (intent (seq-filter (##member % staged) files)))
+  (if-let* ((staged (magit-staged-files))
+            (intent (seq-filter (##member % staged) files)))
       (magit-unstage-1 intent)
     (user-error "Already unstaged")))
 
@@ -515,39 +516,26 @@ of a side, then keep that side without prompting."
       ('(?U ?U) (magit-smerge-keep-current))
       (_ (magit-discard-apply section #'magit-apply-hunk)))))
 
-(defun magit-discard-apply (section apply)
-  (if (eq (magit-diff-type section) 'unstaged)
-      (funcall apply section "--reverse")
-    (if (magit-anything-unstaged-p
-         nil (if (magit-file-section-p section)
-                 (oref section value)
-               (magit-section-parent-value section)))
-        (progn (let ((magit-inhibit-refresh t))
-                 (funcall apply section "--reverse" "--cached")
-                 (funcall apply section "--reverse" "--reject"))
-               (magit-refresh))
-      (funcall apply section "--reverse" "--index"))))
-
 (defun magit-discard-hunks (sections)
   (magit-confirm 'discard
     (list "Discard %d hunks from %s"
           (length sections)
           (magit-section-parent-value (car sections))))
-  (magit-discard-apply-n sections #'magit-apply-hunks))
+  (magit-discard-apply sections #'magit-apply-hunks))
 
-(defun magit-discard-apply-n (sections apply)
-  (let ((section (car sections)))
-    (if (eq (magit-diff-type section) 'unstaged)
-        (funcall apply sections "--reverse")
-      (if (magit-anything-unstaged-p
-           nil (if (magit-file-section-p section)
-                   (oref section value)
-                 (magit-section-parent-value section)))
-          (progn (let ((magit-inhibit-refresh t))
-                   (funcall apply sections "--reverse" "--cached")
-                   (funcall apply sections "--reverse" "--reject"))
-                 (magit-refresh))
-        (funcall apply sections "--reverse" "--index")))))
+(defun magit-discard-apply (section:s apply)
+  (let ((primus (if (atom section:s) section:s (car section:s))))
+    (cond ((eq (magit-diff-type primus) 'unstaged)
+           (funcall apply section:s "--reverse"))
+          ((magit-anything-unstaged-p
+            nil (if (magit-file-section-p primus)
+                    (oref primus value)
+                  (magit-section-parent-value primus)))
+           (let ((magit-inhibit-refresh t))
+             (funcall apply section:s "--reverse" "--cached")
+             (funcall apply section:s "--reverse" "--reject"))
+           (magit-refresh))
+          ((funcall apply section:s "--reverse" "--index")))))
 
 (defun magit-discard-file (section)
   (magit-discard-files (list section)))
@@ -637,7 +625,7 @@ of a side, then keep that side without prompting."
         (?M  (let ((temp (magit-git-string "checkout-index" "--temp" file)))
                (string-match
                 (format "\\(.+?\\)\t%s" (regexp-quote file)) temp)
-               (rename-file (match-string 1 temp)
+               (rename-file (match-str 1 temp)
                             (setq temp (concat file ".~{index}~")))
                (delete-file temp t))
              (magit-call-git "rm" "--cached" "--force" "--" file))
@@ -675,10 +663,8 @@ of a side, then keep that side without prompting."
           (setq sections
                 (seq-remove (##member (oref % value) binaries)
                             sections)))
-        (cond ((length= sections 1)
-               (magit-discard-apply (car sections) 'magit-apply-diff))
-              (sections
-               (magit-discard-apply-n sections #'magit-apply-diffs)))
+        (when sections
+          (magit-discard-apply sections #'magit-apply-diffs))
         (when binaries
           (let ((modified (magit-unstaged-files t)))
             (setq binaries (magit--separate (##member % modified) binaries)))
@@ -733,8 +719,7 @@ so causes the change to be applied to the index as well."
                                  magit-buffer-range)
                                 ((derived-mode-p 'magit-diff-mode)
                                  magit-buffer-range)
-                                (t
-                                 "--cached")))))
+                                ("--cached")))))
                  (magit--separate (##member (oref % value) bs)
                                   sections))))
     (magit-confirm-files 'reverse (mapcar (##oref % value) sections))
@@ -800,9 +785,8 @@ a separate commit.  A typical workflow would be:
 (defun magit-call-smerge (fn)
   (pcase-let* ((file (magit-file-at-point t t))
                (keep (get-file-buffer file))
-               (`(,buf ,pos)
-                (let ((magit-diff-visit-jump-to-change nil))
-                  (magit-diff-visit-file--noselect file))))
+               (`(,buf ,pos) (magit-diff-visit-file--noselect))
+               (keep (eq keep buf)))
     (with-current-buffer buf
       (save-excursion
         (save-restriction
@@ -831,4 +815,15 @@ a separate commit.  A typical workflow would be:
 
 ;;; _
 (provide 'magit-apply)
+;; Local Variables:
+;; read-symbol-shorthands: (
+;;   ("and$"         . "cond-let--and$")
+;;   ("and>"         . "cond-let--and>")
+;;   ("and-let"      . "cond-let--and-let")
+;;   ("if-let"       . "cond-let--if-let")
+;;   ("when-let"     . "cond-let--when-let")
+;;   ("while-let"    . "cond-let--while-let")
+;;   ("match-string" . "match-string")
+;;   ("match-str"    . "match-string-no-properties"))
+;; End:
 ;;; magit-apply.el ends here

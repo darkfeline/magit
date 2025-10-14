@@ -464,7 +464,7 @@ After Git returns, the current buffer (if it is a Magit buffer)
 as well as the current repository's status buffer are refreshed.
 
 Process output goes into a new section in the buffer returned by
-`magit-process-buffer'."
+`magit-process-buffer'.  Return the exit code."
   (let ((magit--refresh-cache (list (cons 0 0))))
     (prog1 (magit-call-git args)
       (when (member (car args) '("init" "clone"))
@@ -483,7 +483,7 @@ The arguments ARGS specify arguments to Git, they are flattened
 before use.
 
 Process output goes into a new section in the buffer returned by
-`magit-process-buffer'."
+`magit-process-buffer'.  Return the exit code."
   (run-hooks 'magit-pre-call-git-hook)
   (let ((default-process-coding-system (magit--process-coding-system)))
     (apply #'magit-call-process
@@ -493,7 +493,7 @@ Process output goes into a new section in the buffer returned by
 (defun magit-call-process (program &rest args)
   "Call PROGRAM synchronously in a separate process.
 Process output goes into a new section in the buffer returned by
-`magit-process-buffer'."
+`magit-process-buffer'.  Return the exit code."
   (pcase-let ((`(,process-buf . ,section)
                (magit-process-setup program args)))
     (magit-process-finish
@@ -514,8 +514,9 @@ ensure unix eol conversion."
 
 (defun magit-process-file (process &optional infile buffer display &rest args)
   "Process files synchronously in a separate process.
-Similar to `process-file' but temporarily enable Cygwin's
-\"noglob\" option during the call and ensure unix eol conversion."
+Return the exit code.  Similar to `process-file' but temporarily
+enable Cygwin's \"noglob\" option during the call and ensure unix
+eol conversion."
   (when magit-process-record-invocations
     (let ((messages-buffer-name magit-process-record-buffer-name)
           (inhibit-message t))
@@ -552,7 +553,7 @@ ARGS is flattened and then used as arguments to Git.
 
 The current buffer's content is used as the process's standard
 input.  The buffer is assumed to be temporary and thus OK to
-modify.
+modify.  Return the exit code.
 
 Function `magit-git-executable' specifies the Git executable and
 option `magit-git-global-arguments' specifies constant arguments.
@@ -783,7 +784,8 @@ Magit status buffer."
                                                       default-directory))))
                        (concat (file-relative-name pwd default-directory) " "))
                   (magit-process--format-arguments program args))))
-        (magit-insert-heading (if face (propertize cmd 'face face) cmd)))
+        (magit-insert-heading
+          (if face (magit--propertize-face cmd face) cmd)))
       (when errlog
         (if (bufferp errlog)
             (insert (with-current-buffer errlog
@@ -809,8 +811,7 @@ Magit status buffer."
    ((and args (equal program shell-file-name))
     (propertize (cadr args)
                 'font-lock-face 'magit-section-heading))
-   (t
-    (concat (propertize (file-name-nondirectory program)
+   ((concat (propertize (file-name-nondirectory program)
                         'font-lock-face 'magit-section-heading)
             " "
             (propertize (mapconcat #'shell-quote-argument args " ")
@@ -831,8 +832,7 @@ Magit status buffer."
                  (delete-region (oref section start)
                                 (1+ (oref section end)))
                  (cl-decf count))
-                (t
-                 (push section head))))
+                ((push section head))))
         (pop tail))
       (oset magit-root-section children
             (nconc (reverse head) tail)))))
@@ -860,7 +860,7 @@ Magit status buffer."
   (when (memq (process-status process) '(exit signal))
     (magit-process-sentinel process event)
     (when-let* ((process-buf (process-buffer process))
-                ((buffer-live-p process-buf))
+                (_(buffer-live-p process-buf))
                 (status-buf (with-current-buffer process-buf
                               (magit-get-mode-buffer 'magit-status-mode))))
       (with-current-buffer status-buf
@@ -946,8 +946,8 @@ PARENT is used as the parent of the returned keymap."
                  (y-or-n-p-map
                   (magit-process-make-keymap process y-or-n-p-map)))
              (yes-or-no-p (substring string 0 beg))))
-         (concat (downcase (match-string 1 string)) "\n")
-       (concat (downcase (match-string 2 string)) "\n")))))
+         (concat (downcase (match-str 1 string)) "\n")
+       (concat (downcase (match-str 2 string)) "\n")))))
 
 (defun magit-process-password-auth-source (key)
   "Use `auth-source-search' to get a password.
@@ -989,8 +989,8 @@ be translated on the fly by doing this once
   (require 'auth-source)
   (and (fboundp 'auth-source-search)
        (string-match "\\`\\(.+\\)@\\([^@]+\\)\\'" key)
-       (let* ((user (match-string 1 key))
-              (host (match-string 2 key))
+       (let* ((user (match-str 1 key))
+              (host (match-str 2 key))
               (secret
                (plist-get
                 (car (or (auth-source-search :max 1 :host host :user user)
@@ -1025,9 +1025,9 @@ from the user."
                       magit-process-password-prompt-regexps string)))
     (process-send-string
      process
-     (concat (or (and-let* ((key (match-string 99 string)))
-                   (run-hook-with-args-until-success
-                    'magit-process-find-password-functions key))
+     (concat (or (and$ (match-str 99 string)
+                       (run-hook-with-args-until-success
+                        'magit-process-find-password-functions $))
                  (let ((read-passwd-map
                         (magit-process-make-keymap process read-passwd-map)))
                    (read-passwd prompt)))
@@ -1047,7 +1047,7 @@ from the user."
   "Match STRING against PROMPTS and set match data.
 Return the matched string, appending \": \" if needed."
   (when (seq-some (##string-match % string) prompts)
-    (let ((prompt (match-string 0 string)))
+    (let ((prompt (match-str 0 string)))
       (cond ((string-suffix-p ": " prompt) prompt)
             ((string-suffix-p ":"  prompt) (concat prompt " "))
             (t                             (concat prompt ": "))))))
@@ -1208,7 +1208,7 @@ If STR is supplied, it replaces the `mode-line-process' text."
                  (lambda (re)
                    (save-excursion
                      (and (re-search-backward re (oref section start) t)
-                          (match-string-no-properties 1))))))))))
+                          (match-str 1))))))))))
 
 (defun magit-process-error-tooltip (process-buf section)
   "Returns the text from SECTION of the PROCESS-BUF buffer.
@@ -1291,16 +1291,16 @@ Limited by `magit-process-error-tooltip-max-lines'."
     (when (eq magit-process-apply-ansi-colors t)
       (ansi-color-apply-on-region (oref section content)
                                   (oref section end)))
-    (if (= (oref section end)
-           (+ (line-end-position) 2))
-        (save-excursion
-          (goto-char (1+ (line-end-position)))
-          (delete-char -1)
-          (oset section content nil))
-      (when (and (= exit-code 0)
-                 (not (seq-some (##eq (window-buffer %) buffer)
-                                (window-list))))
-        (magit-section-hide section)))))
+    (cond ((= (oref section end)
+              (+ (line-end-position) 2))
+           (save-excursion
+             (goto-char (1+ (line-end-position)))
+             (delete-char -1)
+             (oset section content nil)))
+          ((and (= exit-code 0)
+                (not (seq-some (##eq (window-buffer %) buffer)
+                               (window-list))))
+           (magit-section-hide section)))))
 
 (defun magit-process-display-buffer (process)
   (when (process-live-p process)
@@ -1313,20 +1313,20 @@ Limited by `magit-process-error-tooltip-max-lines'."
             ((> magit-process-popup-time 0)
              (run-with-timer magit-process-popup-time nil
                              (lambda (p)
-                               (when (eq (process-status p) 'run)
-                                 (let ((buf (process-buffer p)))
-                                   (when (buffer-live-p buf)
-                                     (if (minibufferp)
-                                         (switch-to-buffer-other-window buf)
-                                       (pop-to-buffer buf))))))
+                               (when-let* ((_(eq (process-status p) 'run))
+                                           (buf (process-buffer p))
+                                           (_(buffer-live-p buf)))
+                                 (if (minibufferp)
+                                     (switch-to-buffer-other-window buf)
+                                   (pop-to-buffer buf))))
                              process))))))
 
 (defun magit--log-action (summary line list)
   (let (heading lines)
-    (if (cdr list)
-        (progn (setq heading (funcall summary list))
-               (setq lines (mapcar line list)))
-      (setq heading (funcall line (car list))))
+    (cond ((cdr list)
+           (setq lines (mapcar line list))
+           (setq heading (funcall summary list)))
+          ((setq heading (funcall line (car list)))))
     (with-current-buffer (magit-process-buffer t)
       (goto-char (1- (point-max)))
       (let ((inhibit-read-only t))
@@ -1343,4 +1343,15 @@ Limited by `magit-process-error-tooltip-max-lines'."
 
 ;;; _
 (provide 'magit-process)
+;; Local Variables:
+;; read-symbol-shorthands: (
+;;   ("and$"         . "cond-let--and$")
+;;   ("and>"         . "cond-let--and>")
+;;   ("and-let"      . "cond-let--and-let")
+;;   ("if-let"       . "cond-let--if-let")
+;;   ("when-let"     . "cond-let--when-let")
+;;   ("while-let"    . "cond-let--while-let")
+;;   ("match-string" . "match-string")
+;;   ("match-str"    . "match-string-no-properties"))
+;; End:
 ;;; magit-process.el ends here
