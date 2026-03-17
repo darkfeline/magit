@@ -1,6 +1,6 @@
 ;;; magit-mode.el --- Create and refresh Magit buffers  -*- lexical-binding:t -*-
 
-;; Copyright (C) 2008-2025 The Magit Project Contributors
+;; Copyright (C) 2008-2026 The Magit Project Contributors
 
 ;; Author: Jonas Bernoulli <emacs.magit@jonas.bernoulli.dev>
 ;; Maintainer: Jonas Bernoulli <emacs.magit@jonas.bernoulli.dev>
@@ -47,20 +47,18 @@
 (declare-function elp-restore-all "elp" ())
 
 (defvar magit--wip-inhibit-autosave)
-(defvar magit-wip-after-save-local-mode)
+(defvar magit-wip-mode)
 (declare-function magit-wip-get-ref "magit-wip" ())
 (declare-function magit-wip-commit-worktree "magit-wip" (ref files msg))
 
 ;;; Options
 
-(defcustom magit-mode-hook
-  (list #'magit-load-config-extensions)
+(defcustom magit-mode-hook nil
   "Hook run when entering a mode derived from Magit mode."
-  :package-version '(magit . "3.0.0")
+  :package-version '(magit . "4.4.2")
   :group 'magit-modes
   :type 'hook
-  :options (list #'magit-load-config-extensions
-                 #'bug-reference-mode))
+  :options (list #'bug-reference-mode))
 
 (defcustom magit-setup-buffer-hook
   (list #'magit-maybe-save-repository-buffers
@@ -95,6 +93,7 @@ inside your function."
 
 (defcustom magit-post-refresh-hook
   ;; Do not function-quote to avoid circular dependencies.
+  ;; Functions added here have to be autoloaded.
   '(magit-auto-revert-buffers
     magit-run-post-commit-hook
     magit-run-post-stage-hook
@@ -425,6 +424,7 @@ recommended value."
   "C-c C-w" 'magit-copy-thing
   "C-w"     'magit-copy-section-value
   "M-w"     'magit-copy-buffer-revision
+  "<remap> <mouse-set-point>"     'magit-mouse-set-point
   "<remap> <back-to-indentation>" 'magit-back-to-indentation
   "<remap> <previous-line>"       'magit-previous-line
   "<remap> <next-line>"           'magit-next-line
@@ -553,13 +553,6 @@ to the kill ring."
     ["Bury buffer"                magit-mode-bury-buffer t]))
 
 ;;; Mode
-
-(defun magit-load-config-extensions ()
-  "Load Magit extensions that are defined at the Git config layer."
-  (dolist (ext (magit-get-all "magit.extension"))
-    (let ((sym (intern (format "magit-%s-mode" ext))))
-      (when (fboundp sym)
-        (funcall sym 1)))))
 
 (define-derived-mode magit-mode magit-section-mode "Magit"
   "Parent major mode from which Magit major modes inherit.
@@ -1105,21 +1098,21 @@ The arguments are for internal use."
       (when magit-refresh-verbose
         (message "%s buffer `%s'..." action (buffer-name)))
       (cond
-       (created
-        (funcall refresh)
-        (cond (initial-section (funcall initial-section))
-              (select-section (funcall select-section))))
-       (t
-        (deactivate-mark)
-        (setq magit-section-pre-command-section nil)
-        (setq magit-section-highlight-overlays nil)
-        (setq magit-section-selection-overlays nil)
-        (setq magit-section-highlighted-sections nil)
-        (setq magit-section-focused-sections nil)
-        (let ((positions (magit--refresh-buffer-get-positions)))
-          (funcall refresh)
-          (cond (select-section (funcall select-section))
-                ((magit--refresh-buffer-set-positions positions))))))
+        (created
+         (funcall refresh)
+         (cond (initial-section (funcall initial-section))
+               (select-section (funcall select-section))))
+        (t
+         (deactivate-mark)
+         (setq magit-section-pre-command-section nil)
+         (setq magit-section-highlight-overlays nil)
+         (setq magit-section-selection-overlays nil)
+         (setq magit-section-highlighted-sections nil)
+         (setq magit-section-focused-sections nil)
+         (let ((positions (magit--refresh-buffer-get-positions)))
+           (funcall refresh)
+           (cond (select-section (funcall select-section))
+                 ((magit--refresh-buffer-set-positions positions))))))
       (let ((magit-section-cache-visibility nil))
         (magit-section-show magit-root-section))
       (run-hooks 'magit-refresh-buffer-hook)
@@ -1330,8 +1323,7 @@ argument (the prefix) non-nil means save all with no questions."
                     (setq magit-inhibit-refresh-save t))
                  "to skip the current buffer and remember choice")
              ,@save-some-buffers-action-alist))
-          ;; Create a single wip commit for all saved files, for
-          ;; which `magit-wip-after-save-local-mode' is enabled.
+          ;; Create a single wip commit for all saved files.
           (magit--wip-inhibit-autosave t)
           (saved nil))
       (unwind-protect
@@ -1340,7 +1332,7 @@ argument (the prefix) non-nil means save all with no questions."
            (lambda ()
              (and (funcall magit-save-repository-buffers-predicate topdir)
                   (prog1 t
-                    (when magit-wip-after-save-local-mode
+                    (when magit-wip-mode
                       (push (expand-file-name buffer-file-name) saved))))))
         (when saved
           (let ((default-directory topdir))
@@ -1517,10 +1509,10 @@ repositories."
   (cond-let
     ((eq repository 'all)
      (dolist (cache magit-repository-local-cache)
-       (setf cache (compat-call assoc-delete-all key cache))))
+       (setf cache (assoc-delete-all key cache))))
     ([cache (assoc (or repository (magit-repository-local-repository))
                    magit-repository-local-cache)]
-     (setf cache (compat-call assoc-delete-all key cache)))))
+     (setf cache (assoc-delete-all key cache)))))
 
 (defmacro magit--with-repository-local-cache (key &rest body)
   (declare (indent 1) (debug (form body)))
@@ -1588,16 +1580,16 @@ The additional output can be found in the *Messages* buffer."
 
 (defun magit-run-hook-with-benchmark (hook)
   (cond
-   ((not hook))
-   (magit-refresh-verbose
-    (message "Running %s..." hook)
-    (message "Running %s...done (%.3fs)" hook
-             (benchmark-elapse
-               (run-hook-wrapped
-                hook
-                (lambda (fn)
-                  (message "  %-50s %f" fn (benchmark-elapse (funcall fn))))))))
-   ((run-hooks hook))))
+    ((not hook))
+    (magit-refresh-verbose
+     (message "Running %s..." hook)
+     (message "Running %s...done (%.3fs)" hook
+              (benchmark-elapse
+                (run-hook-wrapped
+                 hook
+                 (lambda (fn)
+                   (message "  %-50s %f" fn (benchmark-elapse (funcall fn))))))))
+    ((run-hooks hook))))
 
 (defun magit-file-region-line-numbers ()
   "Return the bounds of the region as line numbers.

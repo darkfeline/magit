@@ -1,6 +1,6 @@
 ;;; magit-base.el --- Early birds  -*- lexical-binding:t; coding:utf-8 -*-
 
-;; Copyright (C) 2008-2025 The Magit Project Contributors
+;; Copyright (C) 2008-2026 The Magit Project Contributors
 
 ;; Author: Jonas Bernoulli <emacs.magit@jonas.bernoulli.dev>
 ;; Maintainer: Jonas Bernoulli <emacs.magit@jonas.bernoulli.dev>
@@ -334,11 +334,11 @@ Global settings:
   for confirmation for any of these actions, you are still better
   of adding all of the respective symbols individually.
 
-  When `magit-wip-before-change-mode' is enabled then these actions
-  can fairly easily be undone: `discard', `reverse',
-  `stage-all-changes', and `unstage-all-changes'.  If and only if
-  this mode is enabled, then `safe-with-wip' has the same effect
-  as adding all of these symbols individually."
+  When `magit-wip-mode' is enabled then these actions can fairly
+  easily be undone: `discard', `reverse', `stage-all-changes', and
+  `unstage-all-changes'.  If and only if this mode is enabled, then
+  `safe-with-wip' has the same effect as adding all of these symbols
+  individually."
   :package-version '(magit . "2.1.0")
   :group 'magit-essentials
   :group 'magit-commands
@@ -427,7 +427,7 @@ the ellipsis definition.  Currently the only acceptable values
 for WHERE are `margin' or t (representing the default).
 
 Whether collapsed sections are indicated using ellipsis is
-controlled by `magit-section-visibility-indicator'."
+controlled by option `magit-section-visibility-indicators'."
   :package-version '(magit . "4.0.0")
   :group 'magit-miscellaneous
   :type '(repeat (list (symbol :tag "Where")
@@ -800,7 +800,7 @@ ACTION is a member of option `magit-slow-confirm'."
     (y-or-n-p prompt)))
 
 (defvar magit--no-confirm-alist
-  '((safe-with-wip magit-wip-before-change-mode
+  '((safe-with-wip magit-wip-mode
                    discard reverse stage-all-changes unstage-all-changes)))
 
 (cl-defun magit-confirm ( action &optional prompt prompt-n noabort
@@ -881,10 +881,10 @@ See info node `(magit)Debugging Tools' for more information."
                 ,@(mapcan
                    (##list "-L" %)
                    (delete-dups
-                    (mapcan
+                    (seq-keep
                      (lambda (lib)
                        (if-let ((path (locate-library lib)))
-                           (list (file-name-directory path))
+                           (file-name-directory path)
                          (error "Cannot find mandatory dependency %s" lib)))
                      '(;; Like `LOAD_PATH' in `default.mk'.
                        "compat"
@@ -964,32 +964,32 @@ Pad the left side of STRING so that it aligns with the text area."
     (goto-char (point-min))
     (while (search-forward "%" nil t)
       (cond
-       ;; Quoted percent sign.
-       ((eq (char-after) ?%)
-        (delete-char 1))
-       ;; Valid format spec.
-       ((looking-at "\\([-0-9.]*\\)\\([a-zA-Z]\\)")
-        (let* ((num (match-str 1))
-               (spec (string-to-char (match-str 2)))
-               (val (assq spec specification)))
-          (unless val
-            (error "Invalid format character: `%%%c'" spec))
-          (setq val (cdr val))
-          ;; Pad result to desired length.
-          (let ((text (format (concat "%" num "s") val)))
-            ;; Insert first, to preserve text properties.
-            (if (next-property-change 0 (concat " " text))
-                ;; If the inserted text has properties, then preserve those.
-                (insert text)
-              ;; Otherwise preserve FORMAT's properties, like `format-spec'.
-              (insert-and-inherit text))
-            ;; Delete the specifier body.
-            (delete-region (+ (match-beginning 0) (length text))
-                           (+ (match-end 0) (length text)))
-            ;; Delete the percent sign.
-            (delete-region (1- (match-beginning 0)) (match-beginning 0)))))
-       ;; Signal an error on bogus format strings.
-       ((error "Invalid format string"))))
+        ;; Quoted percent sign.
+        ((eq (char-after) ?%)
+         (delete-char 1))
+        ;; Valid format spec.
+        ((looking-at "\\([-0-9.]*\\)\\([a-zA-Z]\\)")
+         (let* ((num (match-str 1))
+                (spec (string-to-char (match-str 2)))
+                (val (assq spec specification)))
+           (unless val
+             (error "Invalid format character: `%%%c'" spec))
+           (setq val (cdr val))
+           ;; Pad result to desired length.
+           (let ((text (format (concat "%" num "s") val)))
+             ;; Insert first, to preserve text properties.
+             (if (next-property-change 0 (concat " " text))
+                 ;; If the inserted text has properties, then preserve those.
+                 (insert text)
+               ;; Otherwise preserve FORMAT's properties, like `format-spec'.
+               (insert-and-inherit text))
+             ;; Delete the specifier body.
+             (delete-region (+ (match-beginning 0) (length text))
+                            (+ (match-end 0) (length text)))
+             ;; Delete the percent sign.
+             (delete-region (1- (match-beginning 0)) (match-beginning 0)))))
+        ;; Signal an error on bogus format strings.
+        ((error "Invalid format string"))))
     (buffer-string)))
 
 ;;; Missing from Emacs

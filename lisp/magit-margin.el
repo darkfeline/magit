@@ -1,6 +1,6 @@
 ;;; magit-margin.el --- Margins in Magit buffers  -*- lexical-binding:t -*-
 
-;; Copyright (C) 2008-2025 The Magit Project Contributors
+;; Copyright (C) 2008-2026 The Magit Project Contributors
 
 ;; Author: Jonas Bernoulli <emacs.magit@jonas.bernoulli.dev>
 ;; Maintainer: Jonas Bernoulli <emacs.magit@jonas.bernoulli.dev>
@@ -161,7 +161,7 @@ does not carry to other options."
     (with-selected-window window
       (set-window-margins
        nil
-       (if (characterp (car magit-section-visibility-indicator))
+       (if (characterp (car (magit-section-visibility-indicator)))
            1
          (car (window-margins)))
        (and (magit--right-margin-active)
