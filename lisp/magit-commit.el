@@ -111,7 +111,7 @@ runs Git asynchronously and on the local machine.  The hook functions
 are called with the same arguments as the Git hook; see the mentioned
 manpage for details.")
 
-;;; Popup
+;;; Menu
 
 ;;;###autoload(autoload 'magit-commit "magit-commit" nil t)
 (transient-define-prefix magit-commit ()
@@ -129,7 +129,8 @@ manpage for details.")
    (magit-commit:--date :level 7)
    (magit:--gpg-sign :level 5)
    (magit:--signoff)
-   (magit-commit:--reuse-message)]
+   (magit-commit:--reuse-message)
+   (magit-commit:--reedit-message)]
   [["Create"
     ("c" "Commit"         magit-commit-create)]
    ["Edit HEAD"
@@ -177,12 +178,28 @@ manpage for details.")
   :reader #'magit-read-reuse-message
   :history-key 'magit-revision-history)
 
+(transient-define-argument magit-commit:--reedit-message ()
+  :description "Reedit commit message"
+  :class 'transient-option
+  :shortarg "-c"
+  :argument "--reedit-message="
+  :reader #'magit-read-reuse-message
+  :history-key 'magit-revision-history)
+
 (defun magit-read-reuse-message (prompt &optional default history)
-  (magit-completing-read prompt (magit-list-refnames)
-                         nil nil nil history
-                         (or default
-                             (and (magit-rev-verify "ORIG_HEAD")
-                                  "ORIG_HEAD"))))
+  (if current-prefix-arg
+      (let (rev)
+        (magit-log-select
+          (lambda (r) (setq rev r) (exit-recursive-edit))
+          "Type %p on a commit to reuse its message")
+        (recursive-edit)
+        rev)
+    (magit-completing-read prompt (magit-list-refnames)
+                           nil nil nil history
+                           (or default
+                               (magit-commit-at-point)
+                               (and (magit-rev-verify "ORIG_HEAD")
+                                    "ORIG_HEAD")))))
 
 ;;; Commands
 ;;;; Create
@@ -553,7 +570,8 @@ See `magit-commit-autofixup' for an alternative implementation."
   (interactive (if current-prefix-arg
                    (list 'transient nil nil)
                  (list 'select
-                       (magit-get-upstream-branch)
+                       (and$ (magit-get-upstream-branch)
+                             (magit-merge-base $ "HEAD"))
                        (transient-args 'magit-commit-absorb))))
   (if (eq phase 'transient)
       (transient-setup 'magit-commit-absorb)
@@ -600,7 +618,8 @@ an alternative implementation."
   (interactive (if current-prefix-arg
                    (list 'transient nil nil)
                  (list 'select
-                       (magit-get-upstream-branch)
+                       (and$ (magit-get-upstream-branch)
+                             (magit-merge-base $ "HEAD"))
                        (transient-args 'magit-commit-autofixup))))
   (if (eq phase 'transient)
       (transient-setup 'magit-commit-autofixup)

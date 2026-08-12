@@ -7,7 +7,7 @@
 #+texinfo_dir_category: Emacs
 #+texinfo_dir_title: Magit: (magit).
 #+texinfo_dir_desc: Using Git from Emacs with Magit.
-#+subtitle: for version 4.6.0
+#+subtitle: for version 4.7.0
 
 #+setupfile: .orgconfig
 
@@ -24,7 +24,7 @@ directly from within Emacs.  While many fine Git clients exist, only
 Magit and Git itself deserve to be called porcelains.
 
 #+texinfo: @noindent
-This manual is for Magit version 4.6.0.
+This manual is for Magit version 4.7.0.
 
 #+texinfo: @insertcopying
 :END:
@@ -1852,7 +1852,9 @@ sections are available.  There is one additional command.
 
 - Key: k (magit-process-kill) ::
 
-  This command kills the process represented by the section at point.
+  This command first tries to interrupt the process represented by the
+  section at point.  If that fails a second invocation instead kills
+  the process.
 
 - Key: M-x magit-toggle-git-debug ::
 
@@ -2245,6 +2247,15 @@ that it should be bound globally.  We recommend using ~C-x g~:
   It supports displaying any existing Magit buffer that belongs to the
   current repository; not just the status buffer.
 
+- Command: magit-parent-status ::
+
+  This command shows the status of the parent repository of the
+  current Git repository.  If the current repository is a submodule,
+  it shows the status buffer of its super-repository.  Otherwise it
+  steps outside the worktree of the current repository, and if that
+  takes us to another repository, that is considered that the parent
+  repository.
+
 *** Status Sections
 
 The contents of status buffers is controlled using the hook
@@ -2420,14 +2431,6 @@ that you don't do that.
   Insert a list of files that are assumed to be unchanged.
 
 *** Status Log Sections
-
-- Function: magit-insert-unpulled-or-recent-commits ::
-
-  Insert section showing unpulled or recent commits.
-  If an upstream is configured for the current branch and it is
-  ahead of the current branch, then show the missing commits.
-  Otherwise, show the last ~magit-log-section-commit-count~
-  commits.
 
 - Function: magit-insert-recent-commits ::
 
@@ -3709,6 +3712,24 @@ If the revision buffer is not displayed from a log buffer, the file
 restriction is determined as usual (see [[*Transient Arguments and
 Buffer Variables]]).
 
+- User Option: magit-revision-use-dedicated-buffers ::
+
+  Whether ~magit-show-commit~ uses a dedicated buffer for each revision.
+
+  If this is ~nil~, then each revision is initially displayed in the same
+  per-repository buffer.  You can then lock that buffer to the revision;
+  if you later display another revision, the locked buffer continues to
+  display the same revision as before and the new revision is displayed
+  in another bufer.
+
+  If this is ~t~, then each revision is displayed in a dedicated buffer.
+  A revision buffer is only reused (i.e., raised), if it already displays
+  the requested revision.  If you enable this, you will quickly accumulate
+  revision buffers and will have to find a way to keep that under control.
+  ~magit-{blame,log,status}-maybe-update-revision-buffer~ also will stop
+  working, if this is enabled.  For these reasons it is recommended, that
+  you do not enable this."
+
 ** Ediffing
 
 This section describes how to enter Ediff from Magit buffers.  For
@@ -4130,11 +4151,16 @@ following suffix commands.
   Start a bisect session.
 
   Bisecting a bug means to find the commit that introduced it.
+
   This command starts such a bisect session by asking for a known
-  good commit and a known bad commit.  If you're bisecting a change
-  that isn't a regression, you can select alternate terms that are
-  conceptually more fitting than "bad" and "good", but the infix
-  arguments to do so are disabled by default.
+  good commit and a known bad commit.  If the region marks a range of
+  commit, where one is an ancestor of the other, then these commits
+  are used as the good and bad commits.  Otherwise these starting
+  points are read in the minibuffer.
+
+  If you're bisecting a change that isn't a regression, you can select
+  alternate terms that are conceptually more fitting than "bad" and
+  "good", but the infix arguments to do so are disabled by default.
 
 - Key: B s (magit-bisect-run) ::
 
@@ -4833,6 +4859,18 @@ variants.
 
 With a prefix argument all apply variants attempt a 3-way merge when
 appropriate (i.e., when ~git apply~ is used internally).
+
+- Command: magit-copy-diff-as-kill ::
+
+  This command saves the diff at point to the kill ring.
+
+  It can be used on staged and unstaged changes, and anywhere
+  ~magit-apply~ can be used.  Additionally, if there is no diff at point
+  but ~magit-buffer-revision~ is non-nil, or there is a commit at point,
+  the diff for that commit is saved.
+
+  This is useful if you need to copy some diff elsewhere, e.g., to a
+  mail client or browser text area.
 
 ** Committing
 
@@ -5610,6 +5648,22 @@ The variables are described in [[*Branch Git Variables]].
   Rename a branch.  The branch and the new name are read in the
   minibuffer.  With prefix argument the branch is renamed even if that
   name conflicts with an existing branch.
+
+- Key: b r (magit-checkout-remote-ref) ::
+
+  This commands first reads a remote from the user.  Then it queries
+  that remote for a list of its references and presents that to the
+  user.  After the user has selected one of them, it fetches just that
+  ref, and finally it checks out "FETCH_HEAD", which now refers to the
+  same commit as REF does on REMOTE.
+
+  This is only useful if you usually only fetch a subset of the refs
+  from REMOTE.  Otherwise it is better to use ~magit-checkout~, as that
+  avoids a round-trip.
+
+  This command is not shown in the menu by default, see
+  [[info:transient#Enabling and Disabling
+   Suffixes][transient#Enabling and Disabling Suffixes]].
 
 - User Option: magit-branch-read-upstream-first ::
 
@@ -7189,6 +7243,19 @@ push-remote, see [[*The Two Remotes]].
 
   This command pulls from a branch read in the minibuffer.
 
+The following suffix is disabled by default. See
+[[info:transient#Enabling and Disabling Suffixes]] for how to enable it.
+
+- Key: F U (magit-pull-into-upstream) ::
+
+  This command update the upstream of the current branch from its own
+  upstream.
+
+  If the upstream of the current branch is a local branch, and the
+  upstream of that is a remote branch, then the local upstream is
+  updated.  This makes it possible to update the upstream branch,
+  without having to first check it out.
+
 ** Pushing
 
 Also see [[man:git-push]] For information about the upstream and the
@@ -7286,7 +7353,7 @@ add them to the transient.
 
   #+BEGIN_SRC emacs-lisp
     (transient-insert-suffix 'magit-push \"p\"
-      '(\"i\" magit-push-implicitly))"
+      '(\"i\" magit-push-implicitly))
   #+END_SRC
 
 - Command: magit-push-to-remote remote args ::
@@ -7300,6 +7367,23 @@ add them to the transient.
   ~remote.pushDefault~, ~branch.<branch>.pushRemote~,
   ~branch.<branch>.remote~, ~branch.<branch>.merge~, and
   ~remote.<remote>.push~.
+
+- User Option: magit-push-options ::
+
+  This option lists completion choices that are offered when setting
+  ~--push-option~ in the ~magit-push~ menu.
+
+  Note that ~--push-option~ is disabled by default. See
+  [[info:transient#Enabling and Disabling Suffixes]] for how to enable it.
+
+  Different forges support different push options.  Links to upstream
+  documentation:
+
+  - https://docs.gitlab.com/topics/git/commit/#push-options
+
+  There should be similar documentation for other forges, but I could
+  not find the respective summary pages.  If you find them, please let
+  me know.
 
 ** Plain Patches
 
@@ -8099,7 +8183,15 @@ all, add this to your init file and restart Emacs.
 - Key: C-c M-g d (magit-diff-buffer-file) ::
 
   This command shows the diff for the file of blob that the current
-  buffer visits.
+  buffer visits.  The diff is limited to the file or blob.
+
+  When the buffer visits a blob, then show the respective commit.
+  When the buffer visits a file, then show the differences between
+  ~HEAD~ and the working tree, or the index with a prefix argument.
+
+- Command: magit-show-commit-removing-file ::
+
+  This command shows the commit that removed FILE.
 
 - User Option: magit-diff-buffer-file-locked ::
 

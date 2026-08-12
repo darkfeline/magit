@@ -559,20 +559,39 @@ a good reason to include a long line in the body sometimes."
                  (integer :tag "Fill if longer than")))
 
 (defcustom magit-revision-filter-files-on-follow nil
-  "Whether to honor file filter if log arguments include --follow.
+  "Whether to honor file filter if log arguments include \"--follow\".
 
-When a commit is displayed from a log buffer, the resulting
-revision buffer usually shares the log's file arguments,
-restricting the diff to those files.  However, there's a
-complication when the log arguments include --follow: if the log
-follows a file across a rename event, keeping the file
-restriction would mean showing an empty diff in revision buffers
-for commits before the rename event.
+When a commit is displayed from a log buffer, the resulting revision
+buffer usually shares the log's file arguments, restricting the diff to
+those files.  However, there's a complication when the log arguments
+include \"--follow\": if the log follows a file across a rename event,
+keeping the file restriction would mean showing an empty diff in
+revision buffers for commits before the rename event.
 
-When this option is nil, the revision buffer ignores the log's
-filter if the log arguments include --follow.  If non-nil, the
-log's file filter is always honored."
+When this option is nil, the revision buffer ignores the log's filter
+if the log arguments include \"--follow\".  If non-nil, the log's file filter
+is always honored."
   :package-version '(magit . "3.0.0")
+  :group 'magit-revision
+  :type 'boolean)
+
+(defcustom magit-revision-use-dedicated-buffers nil
+  "Whether `magit-show-commit' uses a dedicated buffer for each revision.
+
+If this is nil, then each revision is initially displayed in the same
+per-repository buffer.  You can then lock that buffer to the revision;
+if you later display another revision, the locked buffer continues to
+display the same revision as before and the new revision is displayed
+in another bufer.
+
+If this is t, then each revision is displayed in a dedicated buffer.
+A revision buffer is only reused (i.e., raised), if it already displays
+the requested revision.  If you enable this, you will quickly accumulate
+revision buffers and will have to find a way to keep that under control.
+`magit-{blame,log,status}-maybe-update-revision-buffer' also will stop
+working, if this is enabled.  For these reasons it is recommended, that
+you do not enable this."
+  :package-version '(magit . "4.7.0")
   :group 'magit-revision
   :type 'boolean)
 
@@ -1153,14 +1172,25 @@ and `:slant'."
   :class 'transient-option
   :argument "-M"
   :allow-empty t
-  :reader #'transient-read-number-N+)
+  :reader #'magit-read-similarity-index)
 
 (transient-define-argument magit-diff:-C ()
   :description "Detect copies"
   :class 'transient-option
   :argument "-C"
   :allow-empty t
-  :reader #'transient-read-number-N+)
+  :reader #'magit-read-similarity-index)
+
+(defun magit-read-similarity-index (prompt initial-input history)
+  "Read a similarity index.  See \"--find-renames\" in git-diff(1) manpage."
+  (catch 'valid
+    (while t
+      (let ((input (read-from-minibuffer prompt initial-input nil nil history)))
+        (if (string-match-p "\\`[0-9]+%?\\'" input)
+            (throw 'valid input)
+	  (message "Please enter a percentage ending in %%, %s"
+                   "or a fraction, omitting the implied leading \"0.\"")
+	  (sit-for 1))))))
 
 (transient-define-argument magit-diff:--diff-algorithm ()
   :description "Diff algorithm"
@@ -1203,6 +1233,7 @@ and `:slant'."
 
 (defun magit-diff-select-ignore-submodules (&rest _ignored)
   (magit-read-char-case "Ignore submodules " t
+    (?n "[n]one"      "none")
     (?u "[u]ntracked" "untracked")
     (?d "[d]irty"     "dirty")
     (?a "[a]ll"       "all")))
@@ -1395,7 +1426,7 @@ If no DWIM context is found, nil is returned."
       (when interactive
         (deactivate-mark))
       (if mbase
-          (let ((base (magit-git-string "merge-base" revA revB)))
+          (let ((base (magit-merge-base revA revB)))
             (cond
               ((string= (magit-rev-parse revA) base)
                (format "%s..%s" revA revB))
@@ -1492,14 +1523,15 @@ be committed."
   (magit-commit-diff--show))
 
 ;;;###autoload
-(defun magit-diff-buffer-file ()
+(defun magit-diff-buffer-file (&optional unstaged-only)
   "Show diff for the blob or file visited in the current buffer.
+
+Limit the diff to the file or blob.
 
 When the buffer visits a blob, then show the respective commit.
 When the buffer visits a file, then show the differences between
-`HEAD' and the working tree.  In both cases limit the diff to
-the file or blob."
-  (interactive)
+`HEAD' and the working tree, or the index with a prefix argument."
+  (interactive (list current-prefix-arg))
   (require 'magit)
   (if-let ((file (magit-file-relative-name)))
       (if magit-buffer-revision
@@ -1510,7 +1542,9 @@ the file or blob."
         (let ((line (line-number-at-pos))
               (col (current-column)))
           (with-current-buffer
-              (magit-diff-setup-buffer (or (magit-get-current-branch) "HEAD")
+              (magit-diff-setup-buffer (and (not unstaged-only)
+                                            (or (magit-get-current-branch)
+                                                "HEAD"))
                                        nil
                                        (car (magit-diff-arguments))
                                        (list file)
@@ -1543,8 +1577,19 @@ the file or blob."
 ;;;###autoload
 (defun magit-show-commit (rev &optional args files module)
   "Visit the revision at point in another buffer.
-If there is no revision at point or with a prefix argument prompt
-for a revision."
+
+If there is no revision at point, or with a prefix argument, prompt
+for a revision.
+
+By default the same per-repository revision buffer is reused for all
+revision.  When you want to display multiple revisions at the same
+time, you can lock a revision buffer to its value, which prevents it
+from being reused to display another revision.
+
+Alternatively, you can use a dedicated buffer for every revision.
+To do so, enable `magit-revision-use-dedicated-buffers', but only
+after readings its docstring, to make sure you are can live with
+the trade-offs."
   (interactive
     (pcase-let* ((mcommit (magit-section-value-if 'module-commit))
                  (atpoint (or mcommit
@@ -1574,6 +1619,22 @@ for a revision."
                 (col (current-column)))
             (with-current-buffer buf
               (magit-diff--goto-file-position file line col))))))))
+
+;;;###autoload
+(defun magit-show-commit-removing-file (file &optional args)
+  "Show the commit that removed FILE."
+  (interactive
+    (let* ((files (magit-removed-files))
+           (default (magit-file-relative-name))
+           (default (and default (member default files) default)))
+      (list (magit-completing-read "Show commit removing file: "
+                                   files nil nil nil nil default)
+            (car (magit-show-commit--arguments)))))
+  (if-let ((rev (magit-with-toplevel
+                  (magit-git-string "log" "--format=%H" "--diff-filter=D"
+                                    "--full-history" "-n" "1" "--" file))))
+      (magit-show-commit rev args)
+    (error "%s has not been removed" file)))
 
 (defun magit-diff--locate-file-position (file line column &optional parent)
   (and-let*
@@ -2985,7 +3046,8 @@ Staging and applying changes is documented in info node
      '("--stat" "--no-ext-diff"))
 
 (defun magit-revision-setup-buffer (rev args files)
-  (magit-setup-buffer #'magit-revision-mode nil
+  (magit-setup-buffer #'magit-revision-mode
+      magit-revision-use-dedicated-buffers
     (magit-buffer-revision rev)
     (magit-buffer-diff-range (format "%s^..%s" rev rev))
     (magit-buffer-diff-type 'committed)
@@ -3354,7 +3416,7 @@ Refer to user option `magit-revision-insert-related-refs-display-alist'."
                                           (or branch "HEAD")))
     (magit-insert-section (diffbuf)
       (magit--insert-diff t
-        "merge-tree" (magit-git-string "merge-base" head magit-buffer-revision)
+        "merge-tree" (magit-merge-base head magit-buffer-revision)
         head magit-buffer-revision))))
 
 (cl-defmethod magit-buffer-value (&context (major-mode magit-merge-preview-mode))

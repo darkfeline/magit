@@ -433,6 +433,7 @@ without prompting."
   ["Arguments"
    :if-not magit-am-in-progress-p
    ("-3" "Fall back on 3way merge"           ("-3" "--3way"))
+   ("-R" "Reject only failed hunks"          "--reject")
    (magit-apply:-p)
    ("-c" "Remove text before scissors line"  ("-c" "--scissors"))
    ("-k" "Inhibit removal of email cruft"    ("-k" "--keep"))
@@ -766,7 +767,7 @@ argument, prompt for the first commit to potentially squash into."
   (magit-rebase-interactive-1
       (and-let ((_(not select))
                 (upstream (magit-get-upstream-branch)))
-        (magit-git-string "merge-base" upstream "HEAD"))
+        (magit-merge-base upstream "HEAD"))
       (nconc (list "--autosquash" "--keep-empty") args)
     "Type %p on a commit to squash into it and then rebase as necessary,"
     "true" nil t nil t))

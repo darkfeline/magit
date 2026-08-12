@@ -31,7 +31,7 @@ General Public License for more details.
 @finalout
 @titlepage
 @title Magit User Manual
-@subtitle for version 4.6.0
+@subtitle for version 4.7.0
 @author Jonas Bernoulli
 @page
 @vskip 0pt plus 1filll
@@ -53,7 +53,7 @@ directly from within Emacs.  While many fine Git clients exist, only
 Magit and Git itself deserve to be called porcelains.
 
 @noindent
-This manual is for Magit version 4.6.0.
+This manual is for Magit version 4.7.0.
 
 @insertcopying
 @end ifnottex
@@ -2176,7 +2176,9 @@ sections are available.  There is one additional command.
 @item @kbd{k} (@code{magit-process-kill})
 @kindex k
 @findex magit-process-kill
-This command kills the process represented by the section at point.
+This command first tries to interrupt the process represented by the
+section at point.  If that fails a second invocation instead kills
+the process.
 
 @item @kbd{M-x magit-toggle-git-debug}
 @findex magit-toggle-git-debug
@@ -2655,6 +2657,15 @@ It supports displaying any existing Magit buffer that belongs to the
 current repository; not just the status buffer.
 @end deffn
 
+@deffn Command magit-parent-status
+This command shows the status of the parent repository of the
+current Git repository.  If the current repository is a submodule,
+it shows the status buffer of its super-repository.  Otherwise it
+steps outside the worktree of the current repository, and if that
+takes us to another repository, that is considered that the parent
+repository.
+@end deffn
+
 @anchor{Status Sections}
 @subsection Status Sections
 
@@ -2838,14 +2849,6 @@ Insert a list of files that are assumed to be unchanged.
 
 @anchor{Status Log Sections}
 @subsection Status Log Sections
-
-@defun magit-insert-unpulled-or-recent-commits
-Insert section showing unpulled or recent commits.
-If an upstream is configured for the current branch and it is
-ahead of the current branch, then show the missing commits.
-Otherwise, show the last @code{magit-log-section-commit-count}
-commits.
-@end defun
 
 @defun magit-insert-recent-commits
 Insert section showing the last @code{magit-log-section-commit-count}
@@ -4374,6 +4377,24 @@ if @code{--follow} is present in the log arguments.
 If the revision buffer is not displayed from a log buffer, the file
 restriction is determined as usual (see @ref{Transient Arguments and Buffer Variables}).
 
+@defopt magit-revision-use-dedicated-buffers
+Whether @code{magit-show-commit} uses a dedicated buffer for each revision.
+
+If this is @code{nil}, then each revision is initially displayed in the same
+per-repository buffer.  You can then lock that buffer to the revision;
+if you later display another revision, the locked buffer continues to
+display the same revision as before and the new revision is displayed
+in another bufer.
+
+If this is @code{t}, then each revision is displayed in a dedicated buffer.
+A revision buffer is only reused (i.e., raised), if it already displays
+the requested revision.  If you enable this, you will quickly accumulate
+revision buffers and will have to find a way to keep that under control.
+@code{magit-@{blame,log,status@}-maybe-update-revision-buffer} also will stop
+working, if this is enabled.  For these reasons it is recommended, that
+you do not enable this."
+@end defopt
+
 @node Ediffing
 @section Ediffing
 
@@ -4869,11 +4890,16 @@ following suffix commands.
 Start a bisect session.
 
 Bisecting a bug means to find the commit that introduced it.
+
 This command starts such a bisect session by asking for a known
-good commit and a known bad commit.  If you're bisecting a change
-that isn't a regression, you can select alternate terms that are
-conceptually more fitting than "bad" and "good", but the infix
-arguments to do so are disabled by default.
+good commit and a known bad commit.  If the region marks a range of
+commit, where one is an ancestor of the other, then these commits
+are used as the good and bad commits.  Otherwise these starting
+points are read in the minibuffer.
+
+If you're bisecting a change that isn't a regression, you can select
+alternate terms that are conceptually more fitting than "bad" and
+"good", but the infix arguments to do so are disabled by default.
 
 @item @kbd{B s} (@code{magit-bisect-run})
 @kindex B s
@@ -5725,6 +5751,18 @@ the change to be applied to the index as well.
 
 With a prefix argument all apply variants attempt a 3-way merge when
 appropriate (i.e., when @code{git apply} is used internally).
+
+@deffn Command magit-copy-diff-as-kill
+This command saves the diff at point to the kill ring.
+
+It can be used on staged and unstaged changes, and anywhere
+@code{magit-apply} can be used.  Additionally, if there is no diff at point
+but @code{magit-buffer-revision} is non-nil, or there is a commit at point,
+the diff for that commit is saved.
+
+This is useful if you need to copy some diff elsewhere, e.g., to a
+mail client or browser text area.
+@end deffn
 
 @node Committing
 @section Committing
@@ -6609,6 +6647,22 @@ prompt is confusing.
 Rename a branch.  The branch and the new name are read in the
 minibuffer.  With prefix argument the branch is renamed even if that
 name conflicts with an existing branch.
+
+@item @kbd{b r} (@code{magit-checkout-remote-ref})
+@kindex b r
+@findex magit-checkout-remote-ref
+This commands first reads a remote from the user.  Then it queries
+that remote for a list of its references and presents that to the
+user.  After the user has selected one of them, it fetches just that
+ref, and finally it checks out "FETCH@math{_HEAD}", which now refers to the
+same commit as REF does on REMOTE@.
+
+This is only useful if you usually only fetch a subset of the refs
+from REMOTE@.  Otherwise it is better to use @code{magit-checkout}, as that
+avoids a round-trip.
+
+This command is not shown in the menu by default, see
+@ref{Enabling and Disabling Suffixes,transient#Enabling and Disabling Suffixes,,transient,}.
 @end table
 
 @defopt magit-branch-read-upstream-first
@@ -8571,6 +8625,22 @@ the upstream.
 This command pulls from a branch read in the minibuffer.
 @end table
 
+The following suffix is disabled by default. See
+@ref{Enabling and Disabling Suffixes,,,transient,} for how to enable it.
+
+@table @asis
+@item @kbd{F U} (@code{magit-pull-into-upstream})
+@kindex F U
+@findex magit-pull-into-upstream
+This command update the upstream of the current branch from its own
+upstream.
+
+If the upstream of the current branch is a local branch, and the
+upstream of that is a remote branch, then the local upstream is
+updated.  This makes it possible to update the upstream branch,
+without having to first check it out.
+@end table
+
 @node Pushing
 @section Pushing
 
@@ -8691,7 +8761,7 @@ what this command will do.  For example:
 
 @lisp
 (transient-insert-suffix 'magit-push \"p\"
-  '(\"i\" magit-push-implicitly))"
+  '(\"i\" magit-push-implicitly))
 @end lisp
 @end deffn
 
@@ -8706,6 +8776,26 @@ behavior depends on at least these Git variables: @code{push.default},
 @code{branch.<branch>.remote}, @code{branch.<branch>.merge}, and
 @code{remote.<remote>.push}.
 @end deffn
+
+@defopt magit-push-options
+This option lists completion choices that are offered when setting
+@code{--push-option} in the @code{magit-push} menu.
+
+Note that @code{--push-option} is disabled by default. See
+@ref{Enabling and Disabling Suffixes,,,transient,} for how to enable it.
+
+Different forges support different push options.  Links to upstream
+documentation:
+
+@itemize
+@item
+@uref{https://docs.gitlab.com/topics/git/commit/#push-options}
+@end itemize
+
+There should be similar documentation for other forges, but I could
+not find the respective summary pages.  If you find them, please let
+me know.
+@end defopt
 
 @node Plain Patches
 @section Plain Patches
@@ -9796,8 +9886,16 @@ file(s) is set to the visited file.
 @kindex C-c M-g d
 @findex magit-diff-buffer-file
 This command shows the diff for the file of blob that the current
-buffer visits.
+buffer visits.  The diff is limited to the file or blob.
+
+When the buffer visits a blob, then show the respective commit.
+When the buffer visits a file, then show the differences between
+@code{HEAD} and the working tree, or the index with a prefix argument.
 @end table
+
+@deffn Command magit-show-commit-removing-file
+This command shows the commit that removed FILE@.
+@end deffn
 
 @defopt magit-diff-buffer-file-locked
 This option controls whether @code{magit-diff-buffer-file} uses a dedicated

@@ -31,7 +31,7 @@ General Public License for more details.
 @finalout
 @titlepage
 @title Magit-Section Developer Manual
-@subtitle for version 4.6.0
+@subtitle for version 4.7.0
 @author Jonas Bernoulli
 @page
 @vskip 0pt plus 1filll
@@ -54,7 +54,7 @@ user options see @ref{Sections,,,magit,}.  This manual documents how you
 can use sections in your own packages.
 
 @noindent
-This manual is for Magit-Section version 4.6.0.
+This manual is for Magit-Section version 4.7.0.
 
 @insertcopying
 @end ifnottex
@@ -182,6 +182,25 @@ Repeatedly call FUNCTION until it returns @code{nil} or the end of the
 buffer is reached.  FUNCTION has to move point forward or return
 @code{nil}.
 @end defun
+
+You have to define some function that calls @code{magit-insert-section} to
+populate a buffer with sections.  After doing so, that function also
+has to call a few other functions, to put the sections in a good
+initial state.  You will likely need these lines:
+
+@lisp
+(let ((magit-section-cache-visibility nil))
+  (magit-section-show magit-root-section))
+(magit-section-update-highlight)
+(set-buffer-modified-p nil)
+@end lisp
+
+Magit does that in @code{magit-refresh-buffer}.  Look at that function for
+inspiration, and also check out how that function is being used in in
+@code{magit-mode.el}.  The code in that library is to specialized to Magit's
+needs to be made part of the @code{magit-section} package, but a magit-like
+package will likely have to perform mode and buffer setup in a similar
+fashion.
 
 @node Core Functions
 @chapter Core Functions

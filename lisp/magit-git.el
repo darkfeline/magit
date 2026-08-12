@@ -346,7 +346,16 @@ See info node `(magit)Debugging Tools' for more information."
   (message "Additional reporting of Git errors %s"
            (if magit-git-debug "enabled" "disabled")))
 
-(defvar magit--refresh-cache nil)
+(defvar magit--refresh-cache nil
+  "Cache used during refreshes and other expensive operations.
+
+If non-nil, this has the form ((HITS . COUNT) . ENTRIES).  HITS is how
+many times any of the cached ENTRIES were accessed.  COUNT is the number
+of ENTRIES.  Each entry has the form (KEY . VALUE).  KEY can have one
+of two forms (TOPDIR . ARGUMENTS) or (TOPDIR . ACTION).  TOPDIR is the
+top-level directory of a repository.  ARGUMENTS are arguments to git.
+ACTION is a symbol identifying an action other than calling git.  VALUE
+is the cached value.")
 
 (defmacro magit--with-refresh-cache (key &rest body)
   (declare (indent 1) (debug (form body)))
@@ -354,13 +363,16 @@ See info node `(magit)Debugging Tools' for more information."
         (hit (gensym)))
     `(if magit--refresh-cache
          (let ((,k ,key))
+           (unless (zerop (recursion-depth))
+             (setq magit--refresh-cache nil))
            (if-let ((,hit (assoc ,k (cdr magit--refresh-cache))))
                (progn (incf (caar magit--refresh-cache))
                       (cdr ,hit))
-             (incf (cdar magit--refresh-cache))
              (let ((value ,(macroexp-progn body)))
-               (push (cons ,k value)
-                     (cdr magit--refresh-cache))
+               (when (zerop (recursion-depth))
+                 (incf (cdar magit--refresh-cache))
+                 (push (cons ,k value)
+                       (cdr magit--refresh-cache)))
                value)))
        ,@body)))
 
@@ -736,7 +748,7 @@ executable."
 Raise an error if Git cannot be found, if it exits with a
 non-zero status, or the output does not have the expected
 format."
-  (magit--with-refresh-cache default-directory
+  (magit--with-refresh-cache (list default-directory)
     (let ((host (file-remote-p default-directory)))
       (or (cdr (assoc host magit--host-git-version-cache))
           (magit--with-temp-process-buffer
@@ -1242,6 +1254,13 @@ See also `magit-untracked-files'."
 (defun magit-stashed-files (stash)
   (magit-git-items "stash" "show" "-z" "--name-only" stash))
 
+(defun magit-removed-files ()
+  (seq-difference (delete-consecutive-dups
+                   (sort (magit-git-items "log" "-z" "--format="
+                                          "--name-only" "--diff-filter=D")
+                         #'string<))
+                  (magit-list-files)))
+
 (defun magit-skip-worktree-files (&rest args)
   (seq-keep (##and (= (aref % 0) ?S)
                    (substring % 2))
@@ -1468,12 +1487,15 @@ are considered."
   (not (magit-module-worktree-p module)))
 
 (defun magit-ignore-submodules-p (&optional return-argument)
-  (or (cl-find-if (##string-prefix-p "--ignore-submodules" %)
-                  magit-buffer-diff-args)
-      (and$ (magit-get "diff.ignoreSubmodules")
-            (if return-argument
-                (concat "--ignore-submodules=" $)
-              (concat "diff.ignoreSubmodules=" $)))))
+  (or (and-let* ((arg (cl-find-if (##string-prefix-p "--ignore-submodules" %)
+                                  magit-buffer-diff-args))
+                 (_(not (equal arg "--ignore-submodules=none"))))
+        arg)
+      (and-let* ((val (magit-get "diff.ignoreSubmodules"))
+                 (_(not (equal val "none"))))
+        (if return-argument
+            (concat "--ignore-submodules=" val)
+          (concat "diff.ignoreSubmodules=" val)))))
 
 ;;; Revisions and References
 
@@ -1532,6 +1554,15 @@ However, if REV is nil or has the form \":/TEXT\", return REV itself."
         ((string-prefix-p ":/" rev) rev)
         ((concat rev "^{commit}"))))
 
+(defun magit-merge-base (a b &rest args)
+  "Return the merge-base of commits A and B.
+Optional ARGS are additional argument to \"git merge-base\"."
+  (magit-git-string "merge-base" args a b))
+
+(defun magit-rev-ancestor-p (a b)
+  "Return non-nil if commit A is an ancestor of commit B."
+  (magit-git-success "merge-base" "--is-ancestor" a b))
+
 (defun magit-rev-equal (a b)
   "Return t if there are no differences between the commits A and B."
   (magit-git-success "diff" "--quiet" a b))
@@ -1541,10 +1572,6 @@ However, if REV is nil or has the form \":/TEXT\", return REV itself."
   (and-let ((a (magit-commit-oid a t))
             (b (magit-commit-oid b t)))
     (equal a b)))
-
-(defun magit-rev-ancestor-p (a b)
-  "Return non-nil if commit A is an ancestor of commit B."
-  (magit-git-success "merge-base" "--is-ancestor" a b))
 
 (defun magit-rev-head-p (rev)
   "Return t if REV can be dereferences as the `HEAD' commit."
@@ -2330,12 +2357,12 @@ specified using `core.worktree'."
                       (setf (nth 2 worktree) (magit-rev-parse "HEAD"))
                       (setf (nth 3 worktree) (magit-get-current-branch)))
                      ((setf (nth 3 worktree) t)))))
-            ((string-equal line "detached")
+            ((string-equal "detached" line)
              (setf (nth 4 worktree) t))
-            ((string-prefix-p line "locked")
+            ((string-prefix-p "locked" line)
              (setf (nth 5 worktree)
                    (if (> (length line) 6) (substring line 7) t)))
-            ((string-prefix-p line "prunable")
+            ((string-prefix-p "prunable" line)
              (setf (nth 6 worktree)
                    (if (> (length line) 8) (substring line 9) t)))))
     (nreverse worktrees)))
@@ -2703,7 +2730,7 @@ and this option only controls what face is used.")
       (setq end (magit--abbrev-if-oid end)))
     (pcase sep
       (".."  (cons beg end))
-      ("..." (and$ (magit-git-string "merge-base" beg end)
+      ("..." (and$ (magit-merge-base beg end)
                    (cons (if abbrev (magit-rev-abbrev $) $)
                          end))))))
 
@@ -3013,20 +3040,24 @@ out.  Only existing branches can be selected."
          (car (member (magit-get-previous-branch) branches))))))
 
 (defun magit-read-starting-point (prompt &optional branch default)
-  (or (magit-completing-read
-       (concat prompt
-               (and branch
-                    (if (bound-and-true-p ivy-mode)
-                        ;; Ivy-mode strips faces from prompt.
-                        (format  " `%s'" branch)
-                      (concat " " (magit--propertize-face
-                                   branch 'magit-branch-local))))
-               " starting at")
-       (nconc (list "HEAD")
-              (magit-list-refnames)
-              (directory-files (magit-gitdir) nil "_HEAD\\'"))
-       nil 'any nil 'magit-revision-history
-       (or default (magit--default-starting-point)))
+  (or (minibuffer-with-setup-hook #'magit--minibuf-default-add-commit
+        (magit-completing-read
+         (concat prompt
+                 (and branch
+                      (if (bound-and-true-p ivy-mode)
+                          ;; Ivy-mode strips faces from prompt.
+                          (format  " `%s'" branch)
+                        (concat " " (magit--propertize-face
+                                     branch 'magit-branch-local))))
+                 " starting at")
+         (let ((refnames (magit-list-refnames)))
+           (when-let ((upstream (magit-get-upstream-branch)))
+             (setq refnames (cons upstream (delete upstream refnames))))
+           (nconc refnames
+                  (list "HEAD")
+                  (directory-files (magit-gitdir) nil "_HEAD\\'")))
+         nil 'any nil 'magit-revision-history
+         (or default (magit--default-starting-point))))
       (user-error "Nothing selected")))
 
 (defun magit--default-starting-point ()

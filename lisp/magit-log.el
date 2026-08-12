@@ -157,10 +157,10 @@ This is useful if you use really long branch names."
         #'magit-highlight-bracket-keywords)
   "Functions used to highlight parts of each individual commit summary.
 
-These functions are called in order, in a buffer that containing the
-first line of the commit message.  They should set text properties as
-they see fit, usually just `font-lock-face'.  Before each function is
-called, point is at the beginning of the buffer.
+These functions are called in order, in a buffer containing the first
+line of the commit message.  They should set text properties as they see
+fit, usually just `font-lock-face'.  Before each function is called,
+point is at the beginning of the buffer.
 
 See also the related `magit-revision-wash-message-hook'.  You likely
 want to use the same functions for both hooks."
@@ -360,7 +360,7 @@ AUTHOR-WIDTH has to be an integer.  When the name of the author
 (defcustom magit-log-section-commit-count 10
   "How many recent commits to show in certain log sections.
 How many recent commits `magit-insert-recent-commits' and
-`magit-insert-unpulled-from-upstream-or-recent' (provided
+`magit-insert-unpushed-to-upstream-or-recent' (provided
 the upstream isn't ahead of the current branch) show."
   :package-version '(magit . "2.1.0")
   :group 'magit-status
@@ -470,10 +470,10 @@ commits before and half after."
 
 (transient-define-group magit-log-infix-arguments
   ;; The grouping in git-log(1) appears to be guided by implementation
-  ;; details, so our logical grouping only follows it to an extend.
+  ;; details, so our logical grouping only follows it to an extent.
   ;; Arguments that are "misplaced" here:
   ;;   1. From "Commit Formatting".
-  ;;   2. From "Common Diff Options".
+  ;;   2. From "Common Diff Options". ;FIXME
   ;;   3. From unnamed first group.
   ;;   4. Implemented by Magit.
   ["Commit limiting"
@@ -488,6 +488,7 @@ commits before and half after."
    (magit-log:-G)     ;2
    (magit-log:-S)     ;2
    (magit-log:-L)     ;2
+   (7 "=M" "Only merges"            "--merges")
    (7 "=m" "Omit merges"            "--no-merges")
    (7 "=p" "First parent"           "--first-parent")]
   ["History simplification"
@@ -508,6 +509,7 @@ commits before and half after."
    :if magit-log-infix-arguments--show-p
    ("-g" "Show graph"          "--graph")          ;1
    ("-c" "Show graph in color" "--color")          ;2
+   (magit-log:--graph-lane-limit :level 5)         ;TODO
    ("-d" "Show refnames"       "--decorate")       ;3
    ("=S" "Show signatures"     "--show-signature") ;1
    ("-h" "Show header"         "++header")         ;4
@@ -524,6 +526,7 @@ commits before and half after."
   "Show a commit or reference log."
   :man-page "git-log"
   :class 'magit-log-prefix
+  :incompatible '(("--merges" "--no-merges"))
   'magit-log-infix-arguments
   [["Log"
     ("l"                     magit-log-current)
@@ -534,6 +537,7 @@ commits before and half after."
     ("L" "local branches"    magit-log-branches)
     ("b" "all branches"      magit-log-all-branches)
     ("a" "all references"    magit-log-all)
+    ("R" "reflog objects"    magit-log-reflog            :level 0)
     ("B" "matching branches" magit-log-matching-branches :level 7)
     ("T" "matching tags"     magit-log-matching-tags     :level 7)
     ("m" "merged"            magit-log-merged            :level 7)]
@@ -553,7 +557,8 @@ commits before and half after."
   "Change the arguments used for the log(s) in the current buffer."
   :man-page "git-log"
   :class 'magit-log-refresh-prefix
-  magit-log-infix-arguments
+  :incompatible '(("--merges" "--no-merges"))
+  'magit-log-infix-arguments
   [:if-not-mode magit-log-mode
    :description "Arguments"
    (magit-log:-n)
@@ -600,6 +605,14 @@ commits before and half after."
   :shortarg "-n"
   :argument "-n"
   :reader #'transient-read-number-N+)
+
+(transient-define-argument magit-log:--graph-lane-limit ()
+  :description "Show graph lanes"
+  :class 'transient-option
+  :key "=g"
+  :argument "--graph-lane-limit="
+  :reader #'transient-read-number-N+
+  :if (##magit-git-version>= "2.55"))
 
 (transient-define-argument magit:--author ()
   :description "Limit to author"
@@ -774,6 +787,12 @@ completion candidates."
   "Show log for all references and `HEAD'."
   (interactive (magit-log-arguments))
   (magit-log-setup-buffer (list "--all") args files))
+
+;;;###autoload
+(defun magit-log-reflog (&optional args files)
+  "Show log for all objects mentioned in all reflogs."
+  (interactive (magit-log-arguments))
+  (magit-log-setup-buffer (list "--reflog") args files))
 
 ;;;###autoload
 (defun magit-log-buffer-file (&optional follow beg end)

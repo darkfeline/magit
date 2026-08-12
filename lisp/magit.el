@@ -17,7 +17,7 @@
 ;; Homepage: https://github.com/magit/magit
 ;; Keywords: git tools vc
 
-;; Package-Version: 4.6.0
+;; Package-Version: 4.7.0
 ;; Package-Requires: (
 ;;     (emacs        "28.1")
 ;;     (compat       "31.0")
@@ -321,7 +321,7 @@ already been run."
       (magit-maybe-define-global-key-bindings)
     (add-hook 'after-init-hook #'magit-maybe-define-global-key-bindings t)))
 
-;;; Dispatch Popup
+;;; Dispatch Menu
 
 ;;;###autoload(autoload 'magit-dispatch "magit" nil t)
 (transient-define-prefix magit-dispatch ()
@@ -402,7 +402,7 @@ already been run."
    [("C-x m"    "Show all key bindings"    describe-mode)
     ("C-x i"    "Show Info manual"         magit-info)]])
 
-;;; Git Popup
+;;; Git Menu
 
 (defcustom magit-shell-command-verbose-prompt t
   "Whether to show the working directory when reading a command.
@@ -505,7 +505,7 @@ is run in the top-level directory of the current working tree."
   :level 6)
 
 (transient-define-argument magit:--gpg-sign ()
-  :description "Sign using gpg"
+  :description (##concat "Sign using " (or (magit-get "gpg.format") "openpgp"))
   :class 'transient-option
   :shortarg "-S"
   :argument "--gpg-sign="
@@ -546,12 +546,14 @@ is run in the top-level directory of the current working tree."
     choice))
 
 (defun magit-read-gpg-signing-key (prompt &optional initial-input history)
-  (magit-read-gpg-secret-key
-   prompt initial-input history
-   (lambda (cert)
-     (seq-some (##memq 'sign (epg-sub-key-capability %))
-               (epg-key-sub-key-list cert)))
-   magit-openpgp-default-signing-key))
+  (if (member (magit-get "gpg.format") '(nil "openpgp"))
+      (magit-read-gpg-secret-key
+       prompt initial-input history
+       (lambda (cert)
+         (seq-some (##memq 'sign (epg-sub-key-capability %))
+                   (epg-key-sub-key-list cert)))
+       magit-openpgp-default-signing-key)
+    ""))
 
 ;;; Font-Lock Keywords
 

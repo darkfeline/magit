@@ -31,6 +31,8 @@
 
 (require 'magit)
 
+(require 'bookmark)
+
 (declare-function ediff-quit "ediff-util" (reverse-default-keep-variants))
 
 ;;; Find Blob
@@ -138,7 +140,7 @@ Non-interactively REV can also be a blob object."
     buffer))
 
 (defun magit--get-blob-buffer (obj file &optional volatile)
-  ;; If OBJ is a commit, is assumed to be abbreviated.
+  ;; If OBJ is a commit, it is assumed to be abbreviated.
   ;; FILE is assumed to be relative to the top-level.
   (cond-let
     ([buf (if (magit-blob-p obj)
@@ -159,10 +161,11 @@ Non-interactively REV can also be a blob object."
      (buffer-enable-undo buf)
      buf)))
 
-(defun magit--blob-buffer-name (obj file &optional volatile)
+(defun magit--blob-buffer-name (obj file &optional volatile relative)
   (format "%s%s.~%s~"
           (if volatile " " "")
-          (or file (and (magit-blob-p obj) "{blob}"))
+          (or (if relative (file-relative-name file (magit-toplevel)) file)
+              (and (magit-blob-p obj) "{blob}"))
           (subst-char-in-string ?/ ?_ obj)))
 
 (defun magit--revert-blob-buffer (_ignore-auto _noconfirm)
@@ -216,6 +219,10 @@ Non-interactively REV can also be a blob object."
       ;; The FIND-FILE argument wasn't designed for our use case,
       ;; so we have to use this strange invocation to achieve that.
       (normal-mode (not enable-local-variables)))
+    ;; Set this here, so we don't have to make it permanent-local, which
+    ;; we probably shouldn't do, because for other packages changing the.
+    ;; If the user calls `normal-mode', this value will be discarded.
+    (setq-local bookmark-make-record-function #'magit--make-blob-bookmark)
     (set-buffer-modified-p nil)
     (run-hooks 'magit-find-blob-hook)))
 
@@ -282,7 +289,8 @@ Age is tracked in seconds.  If nil, only use `magit--blob-cache-limit'.")
 
 (defun magit--blob-cache-prune ()
   (when magit--blob-cache-timer
-    (cancel-timer magit--blob-cache-timer))
+    (cancel-timer magit--blob-cache-timer)
+    (setq magit--blob-cache-timer nil))
   (pcase-let
       ((`(,active ,rest)
         (magit--separate
@@ -323,6 +331,29 @@ Age is tracked in seconds.  If nil, only use `magit--blob-cache-limit'.")
 See also https://github.com/doomemacs/doomemacs/pull/6309."
   (unless magit-buffer-blob-oid
     (apply fn args)))
+
+;;; Blob Bookmarks
+
+(defun magit--make-blob-bookmark ()
+  (let* ((obj (or magit-buffer-revision
+                  magit-buffer-blob-oid))
+         (bookmark (cons nil (bookmark-make-record-default 'no-file))))
+    (bookmark-prop-set bookmark 'handler #'magit--handle-blob-bookmark)
+    (bookmark-prop-set bookmark 'revision obj)
+    (bookmark-prop-set bookmark 'filename magit-buffer-file-name)
+    ;; Determine buffer name anew to avoid using volatile name.
+    ;; These are offered to the user when they name the bookmark.
+    (bookmark-prop-set
+     bookmark 'defaults
+     (list (magit--blob-buffer-name obj magit-buffer-file-name nil t)
+           (magit--blob-buffer-name obj magit-buffer-file-name)))
+    bookmark))
+
+(defun magit--handle-blob-bookmark (bookmark)
+  (pop-to-buffer-same-window
+   (magit-find-file-noselect (bookmark-prop-get bookmark 'revision)
+                             (bookmark-prop-get bookmark 'filename)
+                             t)))
 
 ;;; Update Index
 
@@ -638,7 +669,7 @@ staged as well as unstaged changes."
                              (if (magit-file-tracked-p (car files))
                                  (magit-confirm-files 'untrack files "Untrack")
                                (user-error "Already untracked"))
-                           (list (magit-read-tracked-file "Untrack file"))))
+                           (list (magit-read-tracked-file "Untrack file" t))))
                      current-prefix-arg))
   (magit-with-toplevel
     (magit-run-git "rm" "--cached" (and force "--force") "--" files)))
@@ -649,7 +680,7 @@ staged as well as unstaged changes."
 NEWNAME may be a file or directory name.  If FILE isn't tracked in
 Git, fallback to using `rename-file'."
   (interactive
-    (let* ((file (magit-read-file "Rename file"))
+    (let* ((file (magit-read-file "Rename file" nil t))
            (path (expand-file-name file (magit-toplevel))))
       (list path (expand-file-name
                   (read-file-name (format "Move %s to destination: " file)
@@ -689,13 +720,23 @@ uncommitted changes.  When the files aren't being tracked in
 Git, then fallback to using `delete-file'."
   (interactive (list (if-let ((files (magit-region-values 'file t)))
                          (magit-confirm-files 'delete files "Delete")
-                       (list (magit-read-file "Delete file")))
+                       (list (magit-read-file "Delete file" nil t)))
                      current-prefix-arg))
-  (if (magit-file-tracked-p (car files))
-      (magit-call-git "rm" (and force "--force") "--" files)
-    (let ((topdir (magit-toplevel)))
-      (dolist (file files)
-        (delete-file (expand-file-name file topdir) t))))
+  (let ((args (and force (list "--force"))))
+    (when-let ((dirs (seq-filter #'file-directory-p files)))
+      (if (yes-or-no-p (format "Recursively delete %s %S:"
+                               (if (length= dirs 1) "directory" "directories")
+                               (string-join dirs ",")))
+          (push "-r" args)
+        (user-error "Abort")))
+    (if (magit-file-tracked-p (car files))
+        (magit-call-git "rm" args "--" files)
+      (let ((topdir (magit-toplevel)))
+        (dolist (file files)
+          (setq file (expand-file-name file topdir))
+          (if (file-directory-p file)
+              (delete-directory file t t)
+            (delete-file file t))))))
   (magit-refresh))
 
 ;;;###autoload
@@ -721,18 +762,30 @@ Git, then fallback to using `delete-file'."
      prompt files nil t nil 'magit-read-file-hist
      (car (member (or default (magit-current-file)) files)))))
 
-(defun magit-read-file (prompt &optional tracked-only)
-  (let ((choices (nconc (magit-list-files)
-                        (and (not tracked-only)
-                             (magit-untracked-files)))))
+(defun magit-read-file (prompt &optional tracked-only include-dirs)
+  (let* ((files (nconc (magit-list-files)
+                       (and (not tracked-only)
+                            (magit-untracked-files))))
+         (choices
+          (if include-dirs
+              (let (dirs)
+                (dolist (file files)
+                  (while (and file
+                              (setq file (file-name-parent-directory file))
+                              (not (equal file "./")))
+                    (if (member file dirs)
+                        (setq file nil)
+                      (push file dirs))))
+                (sort (nconc dirs files) #'string<))
+            files)))
     (magit-completing-read
      prompt choices nil t nil nil
      (car (member (or (magit-section-value-if '(file submodule))
                       (magit-file-relative-name nil tracked-only))
                   choices)))))
 
-(defun magit-read-tracked-file (prompt)
-  (magit-read-file prompt t))
+(defun magit-read-tracked-file (prompt &optional include-dirs)
+  (magit-read-file prompt t include-dirs))
 
 (defun magit-read-unmerged-file (&optional prompt)
   (let ((current  (magit-current-file))
