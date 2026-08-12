@@ -5,7 +5,7 @@
   <a href="https://docs.magit.vc"><b>manual</b></a> |
   <a href="https://docs.magit.vc/magit/FAQ.html"><b>faq</b></a> |
   <a href="https://github.com/magit/magit/wiki"><b>wiki</b></a> |
-  <a href="https://emacs.ch/@tarsius"><b>mastodon</b></a>
+  <a href="https://fosstodon.org/@tarsius"><b>mastodon</b></a>
 </p>
 <hr>
 
@@ -23,10 +23,8 @@
 <hr>
 
 <div align="center">
-  Keeping its users <a href= "https://magit.vc/quotes/">this excited</a> is
-  <a href="https://magit.vc/stats/magit/authors.html#cumulated_added_lines_of_code_per_author">
-    a lot of work
-  </a>.
+  Keeping its users <a href= "https://magit.vc/quotes/">this excited</a>
+  is <a href="https://stats.magit.vc/magit/authors.html"> a lot of work</a>.
   If Magit makes you <br> more productive too,
   then <b>please consider making a donation</b>.
 </div>
@@ -98,6 +96,8 @@ and other videos about Magit, by various creators.
 Magit has many users and very few maintainers, so we kindly ask to read
 the appropriate guidelines before getting in contact. &mdash; Thanks!
 
+Please use your own words.  No stochastic parrots.
+
 - 🆘 [How to ask for help](https://github.com/magit/magit/discussions/4630)
 - 🪳 [How to report a bug](https://github.com/magit/magit/wiki/How-to-report-a-bug)
 - 💡 [How to suggest a feature](https://github.com/magit/magit/discussions/4631)
@@ -105,11 +105,13 @@ the appropriate guidelines before getting in contact. &mdash; Thanks!
 - ℹ️ [FAQ](https://docs.magit.vc/magit/FAQ.html)
 - ℹ️ [Manual](https://docs.magit.vc/magit)
 
-TL;DR We now use discussions for feature requests (not issues) and prefer
-if you ask the community for support instead of the overworked maintainers.
+We use [discussions](https://github.com/magit/magit/discussions) (not issues)
+for feature requests.  Please consider asking other users for help, where ever
+you like to hang out with other Emacs users.  not every question can only be
+answered by the maintainer.
 
-Please also consider to contribute by supporting other users or by making
-a [monetary donation](https://magit.vc/donate). &mdash; Thanks!
+Please consider supporting the maintainer, who makes a living maintaining this
+and other packages, with a [donation](https://magit.vc/donate). &mdash; Thanks!
 
 ***
 ### Acknowledgments
@@ -121,8 +123,6 @@ Magit was started by [Marius Vollmer][marius], and is now maintained by
 [Yann Hodique][yann].  Many more people have [contributed code][authors],
 suggested features or made monetary contributions.
 
-Thanks to all of you, may (the history of) the source be with you!
-
 ***
 [![Compile](https://github.com/magit/magit/actions/workflows/compile.yml/badge.svg)](https://github.com/magit/magit/actions/workflows/compile.yml)
 [![Test](https://github.com/magit/magit/actions/workflows/test.yml/badge.svg)](https://github.com/magit/magit/actions/workflows/test.yml)
@@ -131,15 +131,15 @@ Thanks to all of you, may (the history of) the source be with you!
 [![Melpa](https://melpa.org/packages/magit-badge.svg)](https://melpa.org/#/magit)
 [![Melpa Stable](https://stable.melpa.org/packages/magit-badge.svg)](https://stable.melpa.org/#/magit)
 
-[![Packaging status](https://repology.org/badge/vertical-allrepos/emacs%3Amagit.svg?header=&columns=4&minversion=4&exclude_unsupported=1)](https://repology.org/project/emacs%3Amagit/versions)
+[![Packaging status](https://repology.org/badge/vertical-allrepos/emacs%3Amagit.svg?header=&columns=4&minversion=4.5&exclude_unsupported=1)](https://repology.org/project/emacs%3Amagit/versions)
 
-[authors]: https://magit.vc/stats/magit/authors.html
+[authors]: https://stats.magit.vc/magit/authors.html
 [jonas]:   https://emacsair.me
 [kyle]:    https://kyleam.com
 [marius]:  https://github.com/mvollmer
-[nicolas]: http://dudebout.com
+[nicolas]: https://github.com/dudebout
 [noam]:    https://github.com/npostavs
-[peter]:   https://github.com/pjweisberg
+[peter]:   https://github.com/peweisberg-fadv
 [phil]:    https://github.com/philjackson
 [remi]:    https://github.com/vanicat
 [yann]:    https://yann.hodique.info

@@ -49,6 +49,7 @@ All Contributors
 - Alex Kreisher
 - Alex Ott
 - Allen Li
+- Andrea Alberti
 - Andreas Fuchs
 - Andreas Liljeqvist
 - Andreas Rottmann
@@ -86,6 +87,7 @@ All Contributors
 - Bryan Shell
 - Buster Copley
 - Cameron Chaparro
+- Carl Lei
 - Carl Lieberman
 - Chillar Anand
 - Chris Bernard
@@ -194,6 +196,7 @@ All Contributors
 - Johannes Altmanninger
 - Johannes Maier
 - Johann Klähn
+- John Eismeier
 - John Mastro
 - John Morris
 - John Wiegley
@@ -230,6 +233,7 @@ All Contributors
 - Lele Gaifax
 - Lénaïc Huard
 - Leo Liu
+- Leonard Lausen
 - Leonardo Etcheverry
 - Leo Vivier
 - Li Chen
@@ -303,6 +307,7 @@ All Contributors
 - Paul Pogonyshev
 - Paul Stadig
 - Pavel Holejsovsky
+- Pedro Ribeiro Mendes Júnior
 - Pekka Pessi
 - Pengji Zhang
 - Peter Eisentraut
@@ -384,6 +389,7 @@ All Contributors
 - Teruki Shigitani
 - Thierry Volpiatto
 - Thomas A Caswell
+- Thomas Ferrand
 - Thomas Fini Hansen
 - Thomas Frössman
 - Thomas Jost

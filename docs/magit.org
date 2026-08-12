@@ -7,7 +7,7 @@
 #+texinfo_dir_category: Emacs
 #+texinfo_dir_title: Magit: (magit).
 #+texinfo_dir_desc: Using Git from Emacs with Magit.
-#+subtitle: for version 4.5.0
+#+subtitle: for version 4.6.0
 
 #+setupfile: .orgconfig
 
@@ -24,7 +24,7 @@ directly from within Emacs.  While many fine Git clients exist, only
 Magit and Git itself deserve to be called porcelains.
 
 #+texinfo: @noindent
-This manual is for Magit version 4.5.0.
+This manual is for Magit version 4.6.0.
 
 #+texinfo: @insertcopying
 :END:
@@ -2049,6 +2049,87 @@ Emacs is searching for ~git~.
   are doing.  And think very hard before adding something; it will be
   used every time Magit runs Git for any purpose.
 
+*** Mapping Git Hooks to Lisp Hooks
+
+Git hooks can be configured to call Lisp hooks, starting with Git
+v2.54.0.  The mechanism described here is only used when ~git~ is
+invoked by Magit, and ~git~ is run asynchronously and on the local
+machine.
+
+- User option: magit-run-hooks-from-githooks ::
+
+  This option controls whether Git hooks may run Lisp hooks.
+
+  Magit only defines one such hook mapping, but users can add more.
+
+- User option: magit-user-githook-file ::
+
+  This option controls the location of a user-editable file containing
+  additional hook mappings.
+
+- Variable: magit-githook-directory ::
+
+  The value of this variable is the directory containing files Magit
+  needs to map Git hooks to Lisp hooks.
+
+  This directory must contains two files; ~config~, which maps Git
+  hooks to the Lisp hook ~magit-common-git-post-commit-functions~,
+  and an executable ~magit-run-git-hook~, which is used in that, and
+  potentially other, hook mappings.
+
+  The value of this variable is set by ~magit-process-git-arguments~,
+  when it is first needed.  Users can set it to another directory,
+  but that should rarely be necessary.  Additional hook mappings
+  should instead be defined in ~magit-user-githook-file~.
+
+- Function: magit-run-git-hook (hook &rest args) ::
+
+  This function runs the Lisp hook HOOK with the specified arguments
+  ARGS.  ARGS are the arguments (a possibly empty list of strings),
+  which the Git hook was called with.  HOOK is a string naming a hook.
+
+  This function is only intended to be called via ~emacsclient~, by an
+  executable by the same name, which in turn is only intended to be
+  called by Git hooks.
+
+- Variable: magit-common-git-post-commit-functions ::
+
+  This Lisp hook is run by the Git hooks ~post-commit~, ~post-merge~ and
+  ~post-rewrite~.  There is not a single Git hook, which is called after
+  a commit is created; to achieve that, all of these hooks have to be
+  used.
+
+Git hooks are documented in [[man:githooks]] Also see [[man:git-hook]] Using
+~magit-common-git-post-commit-functions~ as an example, the following
+is how Magit gets Git to map Git hooks to Lisp hooks.
+
+Iff Magit calls Git asynchronously and on the local machine, it
+injects the global arguments ~-c include.path=/path/to/githooks/config~.
+That file contains:
+
+#+begin_src conf-mode
+  [hook "magit-common-post-commit"]
+    event = post-commit
+    event = post-merge
+    event = post-rewrite
+    command = magit-run-git-hook magit-common-git-post-commit-functions
+#+end_src
+
+Consequently when one of the Git hooks ~post-commit~, ~post-merge~ or
+~post-rewrite~ is triggered, that causes the ~magit-run-git-hook~
+executable to be called with ~magit-common-git-post-commit-functions~
+as the first argument.
+
+That executable used the ~emacsclient~ to call a Lisp function by the
+same name, which takes the name of a Lisp hook as the first argument.
+The executable may receive additional arguments from the Git hook,
+which it passes on to the function.  All arguments are strings.
+
+The function ~magit-run-git-hook~ runs the Lisp hook using
+~run-hook-with-args~, passing along all arguments, starting with the
+second.  It also arranges for ~message~ to output to standard output,
+so that messages appear in Magit's process buffer.
+
 * Inspecting
 
 The functionality provided by Magit can be roughly divided into three
@@ -3235,7 +3316,39 @@ not support these arguments.)
 
 - Key: D t (magit-diff-toggle-refine-hunk) ::
 
-  This command toggles hunk refinement on or off.
+  This command toggles hunk refinement on or off, or switches the
+  refinement method.
+
+  If hunk refinement is currently on, then turn off hunk refinement.
+  If hunk refinement is off, then turn on immediate hunk refinement.
+
+  With a prefix argument, an alternative refinement method comes into
+  play.  When using that method, mode hunks are not refined immediately,
+  instead each hunk is refined once it is selected, and then stays refined
+  until the next refresh of the buffer.  If hunk refinement is currently
+  on, then toggle between refining all hunks up front or only once they
+  are selected.  If hunk refinement is off, then turn on hunk refinement,
+  using the eventual refinement method.
+
+  Customize option ~magit-diff-refine-hunk~ to change the default method.
+
+- Key: D T (magit-diff-toggle-fontify-hunk) ::
+
+  This command toggles hunk fontification on or off, or switches the
+  fontification method.
+
+  If hunk fontification is currently on, then turn off hunk fontification.
+  If hunk fontification is off, then turn on immediate hunk fontification.
+
+  With a prefix argument, an alternative fontification method comes into
+  play.  When using that method, mode hunks are not refined immediately,
+  instead each hunk is refined once it is selected, and then stays refined
+  until the next refresh of the buffer.  If hunk fontification is currently
+  on, then toggle between refining all hunks up front or only once they
+  are selected.  If hunk fontification is off, then turn on fontification,
+  using the eventual fontification method.
+
+  Customize option ~magit-diff-fontify-hunk~ to change the default method.
 
 - Key: D r (magit-diff-switch-range-type) ::
 
@@ -3371,6 +3484,40 @@ that they are available here too.
 
   Whether to ignore whitespace changes in word-granularity
   differences.
+
+- User Option: magit-diff-fontify-hunk ::
+
+  Whether to apply syntax highlighting to diff hunks.
+
+  - ~nil~ Never fontify diff hunks.
+  - ~all~ Fontify all diff hunks.
+  - ~t~ Fontify each hunk once it becomes the current section.
+    Keep the fontification when another section is selected.
+    Refreshing the buffer removes all fontification.  This
+    variant is only provided for performance reasons.
+
+  If this is enabled, then ~magit-diff-specify-hunk-foreground~ should
+  be disabled.  Also consider enabling ~magit-diff-use-indicator-faces~.
+  Emacs has to be restarted, after changing the value of the former.
+
+  This is considered experimental and is disabled by default, because the
+  fontification is done synchronously, and that can lead to a noticeable
+  delay.  The plan is to make it asynchronous, probably with the help of
+  the new ~futur~ package, which itself still under heavy development.
+
+- User Option: magit-diff-specify-hunk-foreground ::
+
+  Whether to specify foreground colors for hunk faces.
+
+  Setting this only has an effect if done before Magit is loaded.
+
+- User Option: magit-diff-use-indicator-faces ::
+
+  Whether to use separate faces for diff side indicators.
+
+  If non-~nil~, use, for example, ~magit-diff-removed-indicator~ for the
+  plus sign at the beginning of a removed line.  If ~nil~, use the same
+  face as for the rest of the line.
 
 - User Option: magit-diff-adjust-tab-width ::
 
@@ -4618,7 +4765,7 @@ Fine-grained un-/staging has to be done from the status or a diff
 buffer, but it's also possible to un-/stage all changes made to the
 file visited in the current buffer right from inside that buffer.
 
-- Key: M-x magit-stage-file ::
+- Key: M-x magit-stage-files ::
 
   When invoked inside a file-visiting buffer, then stage all changes
   to that file.  In a Magit buffer, stage the file at point if any.
@@ -4626,7 +4773,7 @@ file visited in the current buffer right from inside that buffer.
   always prompt the user for a file, even in a file-visiting buffer or
   when there is a file section at point.
 
-- Key: M-x magit-unstage-file ::
+- Key: M-x magit-unstage-files ::
 
   When invoked inside a file-visiting buffer, then unstage all changes
   to that file.  In a Magit buffer, unstage the file at point if any.
@@ -5470,6 +5617,10 @@ The variables are described in [[*Branch Git Variables]].
   the name of the branch that is to be created.  The default is ~t~,
   and I recommend you leave it at that.
 
+- User Option: magit-branch-name-suggestions ::
+
+  List of names and/or prefixes suggested when naming a new branch.
+
 - User Option: magit-branch-prefer-remote-upstream ::
 
   This option specifies whether remote upstreams are favored over
@@ -5783,12 +5934,16 @@ following suffix commands.
   merge commit, which makes it possible to inspect how conflicts were
   resolved and to adjust the commit message.
 
+  To create an octopus-merge, separate branches with commas.
+
 - Key: m e (magit-merge-editmsg) ::
 
   This command merges another branch or an arbitrary revision into the
   current branch and opens a commit message buffer, so that the user
   can make adjustments.  The commit is not actually created until the
   user finishes with ~C-c C-c~.
+
+  To create an octopus-merge, separate branches with commas.
 
 - Key: m n (magit-merge-nocommit) ::
 
@@ -5808,6 +5963,8 @@ following suffix commands.
   stuck on some obsolete version of the commits that are being merged.
   Finally, if ~magit-branch-pull-request~ was used to create the merged
   branch, then the respective remote branch is also removed.
+
+  To create an octopus-merge, separate branches with commas.
 
 - Key: m d (magit-merge-dissolve) ::
 
@@ -6021,6 +6178,10 @@ Remotes]].
   This command starts a non-interactive rebase sequence to transfer
   commits from START to ~HEAD~ onto NEWBASE.  START has to be selected
   from a list of recent commits.
+
+  This command calls ~git rebase --onto NEWBASE START HEAD~.  Because
+  the range always ends at ~HEAD~, you must first check out the branch
+  or commit you want as the upper bound (a detached ~HEAD~ works too).
 
 By default Magit uses the ~--autostash~ argument, which causes
 uncommitted changes to be stored in a stash before the rebase begins.
@@ -6912,6 +7073,21 @@ These variables can be set from the transient prefix command
   ~--tags~, then all tags are fetched.  If this variable has no value,
   then only tags are fetched that are reachable from fetched branches.
 
+- Variable: remote.NAME.followRemoteHEAD ::
+
+  How "git fetch" handles updates to "remotes/<remote>/HEAD".
+
+  This command sets the local value of the Git variable
+  ~remote.<remote>.followRemoteHEAD~, where <remote> is a stand-in for
+  the actual remote, as displayed in the menu, from which this command
+  is invoked.  This variable is documented in [[man:git-config]]
+
+  Unfortunately Git does not provide a variable to set a default for
+  all remotes of all repositories, but you can set the global value for
+  a remote name used in multiple repository, which will then be used as
+  the default for that remote in all repositories.  You should consider
+  using "always" for remotes named "origin".
+
 ** Fetching
 
 Also see [[man:git-fetch]] For information about the upstream and the
@@ -7756,19 +7932,15 @@ are being committed.
   This option controls whether the current branch is merged into the
   wip refs after a new commit was created on the branch.
 
-  If non-~nil~ and the current branch has new commits, then it is
-  merged into the wip ref before creating a new wip commit.  This
-  makes it easier to inspect wip history and the wip commits are
-  never garbage collected.
-
   If ~nil~ and the current branch has new commits, then the wip ref
   is reset to the tip of the branch before creating a new wip
   commit.  With this setting wip commits are eventually garbage
   collected.
 
-  If ~immediately~, then use ~git-commit-post-finish-hook~ to
-  create the merge commit.  This is discouraged because it can
-  lead to a race condition, e.g., during rebases.
+  If non-~nil~ and the current branch has new commits, then it is
+  merged into the wip ref before creating a new wip commit.  This
+  makes it easier to inspect wip history and the wip commits are
+  never garbage collected.
 
 When ~magit-wip-merge-branch~ is ~t~, then the history looks like this:
 
@@ -7839,10 +8011,10 @@ all, add this to your init file and restart Emacs.
 #+end_src
 
 - Key: C-c f (magit-file-dispatch) ::
-- Key: C-c f s (magit-stage-file) ::
-- Key: C-c f s (magit-stage-buffer-file) ::
-- Key: C-c f u (magit-unstage-file) ::
-- Key: C-c f u (magit-unstage-buffer-file) ::
+- Key: C-c f s (magit-stage-files) ::
+- Key: C-c f s (magit-file-stage) ::
+- Key: C-c f u (magit-unstage-files) ::
+- Key: C-c f u (magit-file-unstage) ::
 - Key: C-c f , x (magit-file-untrack) ::
 - Key: C-c f , r (magit-file-rename) ::
 - Key: C-c f , k (magit-file-delete) ::
@@ -7878,15 +8050,15 @@ all, add this to your init file and restart Emacs.
   This transient prefix command binds the following suffix commands
   and displays them in a temporary buffer until a suffix is invoked.
 
-- Key: C-c M-g s (magit-stage-file) ::
-- Key: C-c M-g s (magit-stage-buffer-file) ::
+- Key: C-c M-g s (magit-stage-files) ::
+- Key: C-c M-g s (magit-file-stage) ::
 
   Stage all changes to the file being visited in the current buffer.
   When not visiting a file, then the first command is used, which
   prompts for a file.
 
-- Key: C-c M-g u (magit-unstage-file) ::
-- Key: C-c M-g u (magit-unstage-buffer-file) ::
+- Key: C-c M-g u (magit-unstage-files) ::
+- Key: C-c M-g u (magit-file-unstage) ::
 
   Unstage all changes to the file being visited in the current buffer.
   When not visiting a file, then the first command is used, which
@@ -9276,6 +9448,14 @@ being enabled.
 
 If you choose to disable VC anyway, then you can do so by changing
 the value of ~vc-handled-backends~.
+
+*** The diff/log is filtered to one file; how do I show all changes.
+
+The diff arguments used in the current buffer can be changed using
+the ~magit-diff-refresh~ menu on ~D~.
+
+The log arguments used in the current buffer can be changed using
+the ~magit-log-refresh~ menu on ~L~.
 
 ** FAQ - Issues and Errors
 *** Magit is slow

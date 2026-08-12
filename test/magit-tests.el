@@ -42,9 +42,8 @@
                    (list "-c" "user.email=\"a.u.thor@example.com\"")
                    magit-git-global-arguments)))
        (condition-case err
-           (cl-letf (((symbol-function #'message) (lambda (&rest _))))
-             (let ((default-directory (file-truename ,dir)))
-               ,@body))
+           (let ((default-directory (file-truename ,dir)))
+             ,@body)
          (error (message "Keeping test directory:\n  %s" ,dir)
                 (signal (car err) (cdr err))))
        (delete-directory ,dir t))))
@@ -539,7 +538,18 @@ Recent commits\n[[:xdigit:]]\\{7,\\} master dummy\\'"
 (provide 'magit-tests)
 ;; Local Variables:
 ;; read-symbol-shorthands: (
+;;   ("and$"         . "cond-let--and$")
+;;   ("thread$"      . "cond-let--thread$")
+;;   ("when$"        . "cond-let--when$")
+;;   ("and-let*"     . "cond-let--and-let*")
+;;   ("and-let"      . "cond-let--and-let")
+;;   ("if-let*"      . "cond-let--if-let*")
+;;   ("if-let"       . "cond-let--if-let")
+;;   ("when-let*"    . "cond-let--when-let*")
+;;   ("when-let"     . "cond-let--when-let")
+;;   ("while-let*"   . "cond-let--while-let*")
+;;   ("while-let"    . "cond-let--while-let")
 ;;   ("match-string" . "match-string")
-;;   ("match-str" . "match-string-no-properties"))
+;;   ("match-str"    . "match-string-no-properties"))
 ;; End:
 ;;; magit-tests.el ends here

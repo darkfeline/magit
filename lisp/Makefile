@@ -93,22 +93,31 @@ $(PKG)-version.el:
 	@printf " Creating $@\n"
 	@printf "%s" "$$VERSIONLIB_TMPL" > $@
 
-check-declare:
-	@printf "Checking function declarations\n"
-	@$(EMACS_BATCH) -L $(TOP)../borg -L $(TOP)../forge/lisp \
-	--eval "(check-declare-directory default-directory)"
-
 ## Install ###########################################################
 
 install: lisp versionlib
 	@$(MKDIR) $(DESTDIR)$(lispdir)
 	$(CP) $(ELS) magit-autoloads.el magit-version.el $(ELCS) $(DESTDIR)$(lispdir)
 
+## Debug #############################################################
+
+emacs-Q: clean
+	@$(MAKE) autoloads
+	@$(EMACS_INTR) --debug-init --eval "(progn\
+	(setq debug-on-error t)\
+	(require 'magit-autoloads)\
+	(global-set-key \"\\C-xg\" 'magit-status))"
+
+check-declare:
+	@printf "Checking function declarations\n"
+	@$(EMACS_BATCH) -L $(TOP)../borg -L $(TOP)../forge/lisp \
+	--eval "(check-declare-directory default-directory)"
+
 ## Clean #############################################################
 
 clean:
 	@printf " Cleaning lisp/*...\n"
-	@$(RM) *.elc $(ELGS)
+	@$(RM) *.elc magit-autoloads.el
 	@$(RM) ../test/magit-tests.elc
 
 ## Templates #########################################################
