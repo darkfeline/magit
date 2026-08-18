@@ -23,3 +23,8 @@
 *~
 /*.tar
 /*.tar.gz
+
+/dir
+/magit-autoloads.el
+/magit-pkg.el
+/magit.info
